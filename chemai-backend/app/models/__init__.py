@@ -10,6 +10,16 @@ from app.models.parent import Parent
 from app.models.account import Account
 from app.models.teacher_class_subject import TeacherClassSubject
 from app.models.student_parent_binding import StudentParentBinding
+from app.models.question import (
+    Question,
+    QuestionType,
+    Difficulty,
+    QuestionSource,
+    AuditStatus,
+)
+from app.models.question_set import QuestionSet, QuestionSetItem
+from app.models.knowledge_point import KnowledgePoint
+from app.models.historical_exam import HistoricalExam
 
 __all__ = [
     "Base",
@@ -23,4 +33,13 @@ __all__ = [
     "Account",
     "TeacherClassSubject",
     "StudentParentBinding",
+    "Question",
+    "QuestionType",
+    "Difficulty",
+    "QuestionSource",
+    "AuditStatus",
+    "QuestionSet",
+    "QuestionSetItem",
+    "KnowledgePoint",
+    "HistoricalExam",
 ]

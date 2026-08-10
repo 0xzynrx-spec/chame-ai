@@ -53,7 +53,8 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     school_id = _get_school_id(db, account)
 
     # 签发 token
-    access_token = create_access_token(account.id, account.role, school_id)
+    access_token = create_access_token(account.id, account.role, school_id,
+                                       entity_id=account.role_id)
     refresh_token = create_refresh_token(account.id, account.role)
 
     return TokenResponse.create(
@@ -92,8 +93,9 @@ def refresh_token(body: RefreshRequest):
     user_id = payload["user_id"]
     role = payload["role"]
     school_id = payload.get("school_id")
+    entity_id = payload.get("entity_id")
 
-    new_access = create_access_token(user_id, role, school_id)
+    new_access = create_access_token(user_id, role, school_id, entity_id=entity_id)
     new_refresh = create_refresh_token(user_id, role)
 
     return {

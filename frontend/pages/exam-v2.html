@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>教师端考试工作台 — ChemAI 智辅化学</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<!-- KaTeX + mhchem -->
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+
+<!-- Vue 3 CDN -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<!-- Tailwind Configuration — ChemAI Design System -->
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        "oxford-blue": "#002147",
+        "oxford-hover": "#001a38",
+        "teal-accent": "#0d7377",
+        "teal-hover": "#0a5c5f",
+        "warm-paper": "#faf8f5",
+        "warm-bg": "#f5f0e8",
+        "text-primary": "#1a1a2e",
+        "text-secondary": "#6b7280",
+        "decor-warm": "#d4a574",
+        "error-red": "#b43c28",
+        "pass-green": "#2c6e49",
+        "deep-emphasis": "#312e81",
+        "link-blue": "#3b82f6",
+        "badge-pass-bg": "#e0f2f1",
+        "badge-pass-text": "#004f50",
+        "badge-pass-border": "#b7e0dc",
+        "badge-warn-bg": "#fff3cd",
+        "badge-warn-text": "#856404",
+        "badge-warn-border": "#ffe69c",
+        "badge-block-bg": "#ffdad6",
+        "badge-block-text": "#93000a",
+        "badge-block-border": "#f5b4af",
+      },
+      fontFamily: {
+        "headline": ["Cormorant Garamond", "serif"],
+        "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
+        "chem": ["JetBrains Mono", "IBM Plex Mono", "monospace"],
+      },
+      borderRadius: {
+        "DEFAULT": "0.125rem",
+        "lg": "0.25rem",
+        "xl": "0.5rem",
+        "full": "0.75rem",
+      },
+    },
+  },
+}
+</script>
+
+<style>
+/* Base resets */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.material-symbols-outlined.fill {
+  font-variation-settings: 'FILL' 1;
+}
+
+/* ── Review badge states ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 4px; border: 1px solid;
+  font-size: 10px; font-weight: 700; line-height: 1.4;
+}
+.badge-pass { background: #e0f2f1; color: #004f50; border-color: #b7e0dc; }
+.badge-warning { background: #fff3cd; color: #856404; border-color: #ffe69c; }
+.badge-blocked { background: #ffdad6; color: #93000a; border-color: #f5b4af; }
+
+/* ── Authoring mode switching ── */
+.mode-btn {
+  background: #fff; color: #6b7280; border: 1px solid #d1d5db;
+  padding: 6px 16px; border-radius: 16px; font-size: 12px;
+  font-weight: 600; letter-spacing: 0.02em; cursor: pointer;
+  transition: all 0.2s;
+}
+.mode-btn.active {
+  background: #002147; color: #fff; border-color: #002147;
+}
+
+/* ── Tab transitions ── */
+.tab-content { display: none !important; animation: fadeIn 0.3s ease-in-out; }
+.tab-content.active { display: flex !important; }
+.mode-panel { display: none; flex-direction: column; gap: 16px; flex: 1; min-height: 0; }
+.mode-panel.active { display: flex; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Modal system ── */
+.modal-root {
+  display: none; position: fixed; inset: 0; z-index: 100;
+}
+.modal-root.active { display: flex; align-items: center; justify-content: center; }
+.modal-backdrop {
+  position: absolute; inset: 0; background: rgba(0, 20, 40, 0.45);
+}
+.modal-card {
+  position: relative; width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px); overflow-y: auto;
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 20, 40, 0.25);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; border-bottom: 1px solid #d1d5db;
+}
+.modal-body { padding: 16px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid #d1d5db;
+}
+
+/* ── Toast notifications ── */
+.toast-root {
+  position: fixed; right: 24px; bottom: 24px; z-index: 200;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 220px; padding: 10px 14px; border-radius: 8px;
+  color: #fff; font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 20, 40, 0.22);
+  animation: toastIn 0.2s ease-in-out;
+}
+.toast.success { background: #0d7377; }
+.toast.error { background: #b43c28; }
+.toast.info { background: #002147; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Chip selector ── */
+.chip-btn {
+  padding: 4px 12px; border-radius: 16px; font-size: 12px;
+  font-weight: 600; letter-spacing: 0.02em; cursor: pointer;
+  transition: all 0.15s; border: 1px solid #d1d5db;
+  background: #fff; color: #6b7280;
+}
+.chip-btn.selected {
+  background: #0d7377; color: #fff; border-color: #0d7377;
+}
+
+/* ── Knowledge point chips ── */
+.kp-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; border-radius: 12px;
+  background: #e0f2f1; color: #004f50; font-size: 12px;
+  font-weight: 500;
+}
+.kp-chip .remove { cursor: pointer; font-weight: 700; }
+
+/* ── Search dropdown ── */
+.kp-search-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 6px;
+  max-height: 200px; overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.kp-search-dropdown .item {
+  padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+.kp-search-dropdown .item:hover { background: #e0f2f1; }
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #faf8f5; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ── Loading skeleton ── */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Exam status tags ── */
+.exam-tag-draft { background: #fef7e0; color: #b06000; }
+.exam-tag-active { background: #e8f0fe; color: #1967d2; }
+.exam-tag-ended { background: #f1f3f4; color: #5f6368; }
+
+/* ── Drag ghost ── */
+.card-drag-handle {
+  width: 24px; border-right: 1px solid #d1d5db;
+  background: #faf8f5; border-radius: 11px 0 0 11px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab;
+}
+
+/* ── OCR drop zone ── */
+.ocr-dropzone {
+  border: 2px dashed #d1d5db; border-radius: 12px;
+  background: #faf8f5; padding: 40px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; transition: border-color 0.2s;
+}
+.ocr-dropzone.drag-over { border-color: #0d7377; background: #e0f2f1; }
+
+/* ── Chemistry content styling ── */
+.chem-content .katex { font-size: 1rem; }
+.chem-content .katex-display { margin: 0.5em 0; }
+</style>
+</head>
+
+<body class="min-h-screen flex flex-col font-body text-text-primary" style="background:#faf8f5;">
+
+<div id="app">
+
+<!-- ═══════════════ 登录界面 ═══════════════ -->
+<div v-if="!isLoggedIn" style="display:flex; align-items:center; justify-content:center; min-height:100vh; background: linear-gradient(135deg, #002147 0%, #0d7377 100%); padding: 24px;">
+  <div style="width: min(420px, 100%); background: #fff; border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden;">
+    <!-- Logo 区 -->
+    <div style="text-align:center; padding: 32px 24px 16px;">
+      <div style="font-family:'Cormorant Garamond',serif; font-size:28px; font-weight:700; color:#002147;">ChemAI 智辅化学</div>
+      <div style="font-size:13px; color:#6b7280; margin-top:4px;">教师端考试工作台</div>
+    </div>
+    <!-- 表单 -->
+    <form @submit.prevent="doLogin" style="padding: 0 32px 32px; display:flex; flex-direction:column; gap:16px;">
+      <div>
+        <label style="font-size:13px; font-weight:600; color:#1a1a2e;">用户名</label>
+        <input v-model="loginForm.username" type="text" required
+          style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; margin-top:4px;"
+          placeholder="请输入用户名"/>
+      </div>
+      <div>
+        <label style="font-size:13px; font-weight:600; color:#1a1a2e;">密码</label>
+        <input v-model="loginForm.password" type="password" required
+          style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; margin-top:4px;"
+          placeholder="请输入密码"/>
+      </div>
+      <div>
+        <label style="font-size:13px; font-weight:600; color:#1a1a2e;">角色</label>
+        <select v-model="loginForm.role"
+          style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; margin-top:4px; background:#fff;">
+          <option value="teacher">教师</option>
+          <option value="admin">管理员</option>
+        </select>
+      </div>
+      <div v-if="loginError" style="padding:8px 12px; background:#ffdad6; color:#93000a; border-radius:6px; font-size:13px;">
+        {{ loginError }}
+      </div>
+      <button type="submit" :disabled="loginLoading"
+        style="width:100%; padding:12px; background:#002147; color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; margin-top:4px; transition:opacity 0.2s;"
+        :style="{ opacity: loginLoading ? 0.6 : 1 }">
+        {{ loginLoading ? '登录中...' : '登录' }}
+      </button>
+      <div style="text-align:center; font-size:12px; color:#9ca3af; margin-top:4px;">
+        测试账户: teacher1 / 123456
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header v-if="isLoggedIn" class="bg-white border-b border-gray-200 w-full sticky top-0 z-50">
+  <div class="flex justify-between items-center w-full px-8 h-16 max-w-[1280px] mx-auto">
+    <div class="flex items-center gap-4">
+      <div class="font-headline font-bold text-oxford-blue flex items-center gap-2" style="font-size:20px;">
+        <span class="material-symbols-outlined fill" style="color:#0d7377;">school</span>
+        教师端考试工作台
+      </div>
+    </div>
+    <nav class="hidden md:flex gap-4 items-end h-full pt-4">
+      <button v-for="tab in tabs" :key="tab.id"
+        class="nav-btn pb-2 font-semibold transition-colors cursor-pointer border-b-2"
+        :class="activeTab === tab.id
+          ? 'text-oxford-blue border-oxford-blue'
+          : 'text-text-secondary border-transparent hover:text-oxford-blue'"
+        style="font-size:12px; letter-spacing:0.02em;"
+        @click="switchTab(tab.id)">
+        {{ tab.label }}
+      </button>
+    </nav>
+    <div class="flex items-center gap-4">
+      <button class="bg-oxford-blue text-white rounded-xl px-4 py-2 font-semibold hover:bg-oxford-hover transition-colors"
+        style="font-size:12px;" @click="showToast('考试已发布', 'success')">
+        发布考试
+      </button>
+      <div class="flex gap-2 text-text-secondary">
+        <button class="hover:text-oxford-blue transition-colors p-1"><span class="material-symbols-outlined">notifications</span></button>
+        <button class="hover:text-oxford-blue transition-colors p-1"><span class="material-symbols-outlined">help_outline</span></button>
+        <button class="hover:text-oxford-blue transition-colors p-1"><span class="material-symbols-outlined">account_circle</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+<main v-if="isLoggedIn" class="flex-grow w-full max-w-[1280px] mx-auto px-8 py-4 flex flex-col relative" style="height:calc(100vh - 64px);">
+
+  <!-- ───── Tab 1: 出题工作台 ───── -->
+  <div class="tab-content h-full flex-col gap-4"
+    :class="{ active: activeTab === 'tab-1' }" id="tab-1">
+    <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+      <h1 class="font-headline font-semibold text-oxford-blue" style="font-size:24px;">新题生成与录入</h1>
+      <div class="flex gap-2">
+        <button v-for="m in modes" :key="m.id"
+          class="mode-btn" :class="{ active: activeMode === m.id }"
+          @click="activeMode = m.id">{{ m.label }}</button>
+      </div>
+    </div>
+
+    <!-- Mode: AI 生成 -->
+    <div class="mode-panel" :class="{ active: activeMode === 'ai' }" id="mode-ai">
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-4">
+        <div class="flex flex-wrap gap-4 items-end">
+          <!-- 题型 chip 多选 -->
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">题型</label>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="qt in questionTypes" :key="qt.val"
+                class="chip-btn" :class="{ selected: aiParams.question_types.includes(qt.val) }"
+                @click="toggleQuestionType(qt.val)">{{ qt.label }}</button>
+            </div>
+          </div>
+          <!-- 难度 -->
+          <div class="flex flex-col gap-1" style="width:140px;">
+            <label class="text-xs font-semibold text-text-secondary">难度</label>
+            <select v-model="aiParams.difficulty"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent">
+              <option value="easy">简单</option>
+              <option value="medium">中等</option>
+              <option value="hard">困难</option>
+              <option value="competition">竞赛</option>
+            </select>
+          </div>
+          <!-- 变体源 -->
+          <div class="flex flex-col gap-1" style="width:140px;">
+            <label class="text-xs font-semibold text-text-secondary">变体源</label>
+            <select v-model="aiParams.variant_source"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent">
+              <option value="">原题</option>
+              <option value="my_bank">我的题库</option>
+              <option value="mistakes">错题本</option>
+              <option value="all">全部题目</option>
+            </select>
+          </div>
+          <!-- 目标题库 -->
+          <div class="flex flex-col gap-1" style="width:160px;">
+            <label class="text-xs font-semibold text-text-secondary">目标题库</label>
+            <select v-model="aiParams.target_bank"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent">
+              <option v-for="b in bankFolders" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </div>
+          <!-- 知识点搜索 -->
+          <div class="flex flex-col gap-1 flex-grow" style="min-width:200px; position:relative;">
+            <label class="text-xs font-semibold text-text-secondary">知识点</label>
+            <div class="relative">
+              <span class="material-symbols-outlined absolute left-2 top-2 text-text-secondary" style="font-size:18px;">search</span>
+              <input class="w-full bg-white border border-gray-200 rounded pl-8 pr-3 py-2 text-sm outline-none focus:border-teal-accent"
+                placeholder="搜索知识点..." type="text"
+                v-model="kpSearchText" @input="onKpSearchInput" @focus="kpSearchFocused = true"
+                @blur="kpSearchBlur"/>
+              <!-- 搜索下拉 -->
+              <div v-if="kpSearchFocused && kpSearchResults.length > 0" class="kp-search-dropdown">
+                <div v-for="kp in kpSearchResults" :key="kp.id"
+                  class="item" @mousedown.prevent="addKnowledgePoint(kp)">
+                  <span style="color:#6b7280;font-size:11px;">{{ kp.category }}</span>
+                  &nbsp;{{ kp.name }}
+                </div>
+              </div>
+            </div>
+            <!-- 已选知识点 chip -->
+            <div class="flex flex-wrap gap-1 mt-1" v-if="aiParams.knowledge_points.length > 0">
+              <span v-for="(kp, i) in aiParams.knowledge_points" :key="i" class="kp-chip">
+                {{ kp }} <span class="remove" @click="aiParams.knowledge_points.splice(i,1)">&times;</span>
+              </span>
+            </div>
+          </div>
+          <!-- 变体复选框 -->
+          <div class="flex items-center gap-2 pb-1">
+            <input class="h-4 w-4 rounded border-gray-300" style="accent-color:#0d7377;"
+              id="variant-mode" type="checkbox" v-model="aiParams.is_variant"/>
+            <label class="text-xs font-semibold text-text-secondary cursor-pointer" for="variant-mode">生成变体</label>
+          </div>
+          <!-- 生成按钮 -->
+          <div class="w-full">
+            <button class="w-full h-12 bg-oxford-blue text-white rounded-xl font-semibold hover:bg-oxford-hover transition-colors flex items-center justify-center gap-2"
+              :disabled="aiGenerating" @click="generateQuestions">
+              <span v-if="!aiGenerating">
+                <span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span> 生成题目
+              </span>
+              <span v-else class="flex items-center gap-2">
+                <span class="material-symbols-outlined" style="animation:spin 1s linear infinite;font-size:18px;">progress_activity</span>
+                生成中...
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 题目卡片列表 -->
+      <div class="flex-grow overflow-y-auto pr-2 flex flex-col gap-4">
+        <!-- 加载骨架 -->
+        <div v-if="cardsLoading" class="flex flex-col gap-4">
+          <div v-for="n in 3" :key="n" class="bg-white border border-gray-200 rounded-xl p-4 flex">
+            <div class="skeleton" style="height:80px; flex:1;"></div>
+          </div>
+        </div>
+        <!-- 空态 -->
+        <div v-if="!cardsLoading && questionCards.length === 0" class="flex flex-col items-center justify-center py-16 text-text-secondary">
+          <span class="material-symbols-outlined" style="font-size:48px; opacity:0.3;">science</span>
+          <p class="mt-2">暂无题目，配置参数后点击"生成题目"开始</p>
+        </div>
+        <!-- 题目卡片 v-for -->
+        <div v-for="(card, idx) in questionCards" :key="card._id || idx"
+          class="bg-white border border-gray-200 rounded-xl flex hover:border-teal-accent transition-colors">
+          <div class="card-drag-handle" @click>
+            <span class="material-symbols-outlined text-gray-400" style="font-size:16px;">drag_indicator</span>
+          </div>
+          <div class="p-4 flex-grow border-l-4" :class="getCardBorderClass(card)">
+            <div class="flex justify-between items-start mb-2">
+              <h3 class="font-semibold text-text-primary">{{ idx + 1 }}. {{ getCardTitle(card) }}</h3>
+              <div class="flex gap-2">
+                <span class="bg-gray-100 text-teal-accent px-2 py-0.5 rounded uppercase font-bold border border-teal-accent/30" style="font-size:10px;">
+                  {{ typeLabel(card.type) }}
+                </span>
+                <span class="text-text-secondary hover:text-error-red cursor-pointer"
+                  @click="removeCard(idx)">
+                  <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
+                </span>
+              </div>
+            </div>
+            <p class="text-sm text-text-secondary mb-4 line-clamp-2" v-html="renderContentPreview(card)"></p>
+            <!-- 四维审核徽章 -->
+            <div class="flex gap-2" v-if="card._auditBadges">
+              <span v-for="b in card._auditBadges" :key="b.label"
+                class="badge"
+                :class="'badge-' + b.css">
+                <span>{{ b.icon }}</span> {{ b.label }}
+              </span>
+            </div>
+            <!-- 无方程式审核（手动录入为无方程式） -->
+            <div v-else-if="card.source === 'manual' && !card._hasEquation" class="flex gap-2">
+              <span class="badge badge-pass"><span>✓</span> 人工录入</span>
+            </div>
+            <!-- 操作按钮 -->
+            <div class="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+              <button class="text-xs text-teal-accent font-semibold hover:underline flex items-center gap-1"
+                @click="editCard(idx)">
+                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>编辑
+              </button>
+              <button class="text-xs text-teal-accent font-semibold hover:underline flex items-center gap-1"
+                @click="addToExam(card)">
+                <span class="material-symbols-outlined" style="font-size:14px;">playlist_add</span>加入考试
+              </button>
+              <button class="text-xs text-teal-accent font-semibold hover:underline flex items-center gap-1"
+                @click="addToBank(card)">
+                <span class="material-symbols-outlined" style="font-size:14px;">folder</span>加入题库
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode: 手动录入 -->
+    <div class="mode-panel" :class="{ active: activeMode === 'manual' }" id="mode-manual">
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex-grow overflow-y-auto flex flex-col gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">题型</label>
+            <select v-model="manualForm.type"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent">
+              <option v-for="qt in questionTypes" :key="qt.val" :value="qt.val">{{ qt.label }}</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">难度</label>
+            <select v-model="manualForm.difficulty"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent">
+              <option value="easy">简单</option>
+              <option value="medium">中等</option>
+              <option value="hard">困难</option>
+              <option value="competition">竞赛</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">知识点</label>
+            <input v-model="manualForm.knowledge_points_str"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent"
+              placeholder="如：氧化还原反应, 电解质溶液" type="text"/>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">目标题库</label>
+            <select v-model="manualForm.target_bank"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent">
+              <option v-for="b in bankFolders" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-text-secondary">
+            题干 <span class="text-error-red">*</span>
+            <span :class="manualErrors.content ? 'text-error-red' : 'invisible'" style="font-size:10px;">{{ manualErrors.content }}</span>
+          </label>
+          <textarea v-model="manualForm.content" rows="4"
+            class="w-full bg-white border rounded px-3 py-2 text-sm outline-none focus:border-teal-accent"
+            :class="manualErrors.content ? 'border-error-red' : 'border-gray-200'"
+            placeholder="输入题目内容..."></textarea>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-text-secondary">选项（每行一个，如 A. 选项内容）</label>
+          <textarea v-model="manualForm.options_str" rows="4"
+            class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent font-chem"
+            placeholder="A. ...&#10;B. ...&#10;C. ...&#10;D. ..."></textarea>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">
+              参考答案 <span class="text-error-red">*</span>
+            </label>
+            <input v-model="manualForm.answer" type="text"
+              class="w-full bg-white border rounded px-3 py-2 text-sm outline-none focus:border-teal-accent"
+              :class="manualErrors.answer ? 'border-error-red' : 'border-gray-200'"
+              placeholder="正确答案"/>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-text-secondary">题目解析</label>
+            <input v-model="manualForm.analysis" type="text"
+              class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent"
+              placeholder="解析说明"/>
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button class="bg-oxford-blue text-white rounded-xl px-6 py-2 font-semibold hover:bg-oxford-hover transition-colors flex items-center gap-2"
+            :disabled="manualSubmitting" @click="submitManual">
+            <span v-if="!manualSubmitting"><span class="material-symbols-outlined" style="font-size:18px;">save</span> 保存并进入审核</span>
+            <span v-else>提交中...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode: OCR 导入 -->
+    <div class="mode-panel" :class="{ active: activeMode === 'ocr' }" id="mode-ocr">
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex-grow overflow-y-auto flex flex-col gap-4">
+        <div class="ocr-dropzone"
+          :class="{ 'drag-over': ocrDragOver }"
+          @dragover.prevent="ocrDragOver = true"
+          @dragleave="ocrDragOver = false"
+          @drop.prevent="onOcrDrop">
+          <span class="material-symbols-outlined" style="font-size:40px; color:#0d7377;">upload_file</span>
+          <p class="text-sm text-text-secondary">拖拽试卷图片到此处（JPG / PNG）</p>
+          <button class="border border-teal-accent text-teal-accent rounded-xl px-4 py-2 font-semibold text-xs hover:bg-teal-accent/10 transition-colors"
+            @click="showToast('OCR 识别功能即将上线', 'info')">选择图片</button>
+        </div>
+        <div v-if="ocrPreview" class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-2">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-semibold text-text-secondary">识别预览</span>
+            <span class="bg-gray-100 text-teal-accent px-2 py-0.5 rounded font-bold" style="font-size:10px;">预计 {{ ocrPreview.estimated }} 题</span>
+          </div>
+          <p class="text-text-secondary text-sm">{{ ocrPreview.summary }}</p>
+        </div>
+        <div class="flex justify-end">
+          <button class="bg-oxford-blue text-white rounded-xl px-6 py-2 font-semibold hover:bg-oxford-hover transition-colors flex items-center gap-2"
+            :disabled="!ocrPreview" @click="startOcr">
+            <span class="material-symbols-outlined" style="font-size:18px;">document_scanner</span> 开始识别并导入
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Tab 2: 题库管理 ───── -->
+  <div class="tab-content h-full gap-4"
+    :class="{ active: activeTab === 'tab-2' }" id="tab-2">
+    <!-- 左侧文件夹 -->
+    <div class="w-64 shrink-0 bg-white border border-gray-200 rounded-xl p-2 flex flex-col h-full overflow-y-auto">
+      <div class="text-xs font-semibold text-text-secondary p-2 mb-2">化学题库分类</div>
+      <button v-for="b in bankFolders" :key="b"
+        class="flex w-full items-center gap-2 p-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors"
+        :class="selectedBankFolder === b ? 'bg-teal-accent/10 text-teal-accent' : 'text-text-primary hover:bg-gray-100'"
+        @click="selectedBankFolder = b; loadBankQuestions()">
+        <span class="material-symbols-outlined" style="font-size:20px;">{{ getBankIcon(b) }}</span>
+        {{ b }}
+      </button>
+    </div>
+    <!-- 右侧题目网格 -->
+    <div class="flex-grow bg-white border border-gray-200 rounded-xl p-4 overflow-y-auto">
+      <div class="flex justify-between items-center mb-3">
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-text-secondary">
+            <input class="h-4 w-4" style="accent-color:#0d7377;" type="checkbox"
+              :checked="allBankSelected" @change="toggleAllBank"/>
+            全选
+          </label>
+          <span class="text-xs text-text-secondary">已选 {{ bankSelectedCount }} 题</span>
+        </div>
+        <div class="flex gap-2">
+          <button class="border border-teal-accent text-teal-accent rounded-xl px-3 py-1.5 text-xs font-semibold hover:bg-teal-accent/10" @click="batchMove">移动到</button>
+          <button class="border border-error-red/40 text-error-red rounded-xl px-3 py-1.5 text-xs font-semibold hover:bg-error-red/10" @click="batchDeleteBank">删除所选</button>
+        </div>
+      </div>
+      <!-- 加载态 -->
+      <div v-if="bankLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="n in 6" :key="n" class="border border-gray-200 rounded-xl p-4">
+          <div class="skeleton" style="height:100px;"></div>
+        </div>
+      </div>
+      <!-- 空态 -->
+      <div v-if="!bankLoading && bankQuestions.length === 0" class="flex flex-col items-center justify-center py-16 text-text-secondary">
+        <span class="material-symbols-outlined" style="font-size:48px; opacity:0.3;">inventory_2</span>
+        <p class="mt-2">暂无题目，请先在出题工作台录入题目</p>
+      </div>
+      <!-- 题目网格 -->
+      <div v-if="!bankLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="q in bankQuestions" :key="q.id"
+          class="border border-gray-200 rounded-xl p-4 hover:border-teal-accent transition-colors cursor-pointer flex flex-col gap-2">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <input class="h-4 w-4 bank-check" style="accent-color:#0d7377;" type="checkbox"
+                :checked="q._selected" @change="q._selected = !q._selected; updateBankSelection()"/>
+              <span class="bg-gray-100 text-teal-accent px-2 py-0.5 rounded font-bold" style="font-size:10px;">
+                {{ q.knowledge_points && q.knowledge_points.length ? q.knowledge_points[0] : '未分类' }}
+              </span>
+            </div>
+            <span class="text-text-secondary text-xs" style="font-family:JetBrains Mono;">ID: {{ q.id?.slice(0,4) }}</span>
+          </div>
+          <h4 class="font-semibold text-sm text-text-primary line-clamp-2">{{ getBankCardTitle(q) }}</h4>
+          <p class="text-text-secondary text-xs line-clamp-2" v-html="renderContentPreview(q)"></p>
+          <div class="flex justify-between items-center border-t border-gray-200 pt-2 text-xs text-text-secondary">
+            <span>难度: {{ diffLabel(q.difficulty) }}</span>
+            <span v-if="q._usage">使用 {{ q._usage }}次</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Tab 3: 历史真题库 ───── -->
+  <div class="tab-content h-full flex-col gap-4"
+    :class="{ active: activeTab === 'tab-3' }" id="tab-3">
+    <div class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+      <div class="relative w-full">
+        <span class="material-symbols-outlined absolute left-2 top-2 text-text-secondary" style="font-size:18px;">search</span>
+        <input class="w-full bg-white border border-gray-200 rounded pl-8 pr-3 py-2 text-sm outline-none focus:border-teal-accent"
+          placeholder="搜索历年真题试卷名称..." type="text" v-model="historicalSearch"/>
+      </div>
+      <div class="flex gap-3">
+        <select v-model="historicalRegion" class="bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent" style="width:140px;">
+          <option value="">全部地区</option>
+          <option v-for="r in historicalRegions" :key="r" :value="r">{{ r }}</option>
+        </select>
+        <select v-model="historicalYear" class="bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none focus:border-teal-accent" style="width:140px;">
+          <option value="">全部年份</option>
+          <option v-for="y in historicalYears" :key="y" :value="y">{{ y }}年</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex-grow overflow-y-auto pr-2 flex flex-col gap-4">
+      <div v-for="paper in filteredHistoricalPapers" :key="paper.id"
+        class="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-teal-accent transition-colors">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="bg-teal-accent/10 text-teal-accent px-2 py-0.5 rounded font-bold" style="font-size:10px;">{{ paper.region }}</span>
+            <span class="bg-gray-100 text-text-secondary px-2 py-0.5 rounded font-bold" style="font-size:10px;">{{ paper.year }}年</span>
+            <span class="text-text-secondary text-xs" style="font-family:JetBrains Mono;">题量: {{ paper.question_count }}题</span>
+          </div>
+          <h3 class="font-headline font-bold text-text-primary mb-1" style="font-size:20px;">{{ paper.name }}</h3>
+          <div class="flex gap-4 text-text-secondary text-sm">
+            <span>{{ paper.subject }}</span>
+            <span>总分: {{ paper.total_score }}分</span>
+          </div>
+        </div>
+        <button class="border border-teal-accent text-teal-accent rounded-xl px-4 py-2 font-semibold text-xs hover:bg-teal-accent/10"
+          @click="showToast('真题详情功能即将上线', 'info')">查看试卷</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Tab 4: 考试列表 ───── -->
+  <div class="tab-content h-full flex-col gap-4"
+    :class="{ active: activeTab === 'tab-4' }" id="tab-4">
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="font-headline font-semibold text-oxford-blue" style="font-size:24px;">期末/模拟统考列表</h2>
+      <button class="bg-oxford-blue text-white rounded-xl px-6 py-2 font-semibold text-xs hover:bg-oxford-hover transition-colors flex items-center gap-2 shadow-sm"
+        @click="openCreateExamModal">
+        <span class="material-symbols-outlined" style="font-size:16px;">add</span> 创建考试
+      </button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-for="exam in exams" :key="exam._id"
+        class="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col"
+        :class="{ 'opacity-80': exam.status === 'draft' }">
+        <div class="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
+          <span class="text-xs font-semibold text-text-secondary">{{ exam.date || '--' }}</span>
+          <span class="px-2 py-0.5 rounded font-bold" style="font-size:10px; border:1px solid;"
+            :class="examStatusClass(exam.status)">{{ examStatusLabel(exam.status) }}</span>
+        </div>
+        <div class="p-4 flex-grow flex flex-col justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-text-primary mb-2">{{ exam.name }}</h3>
+            <p class="text-xs text-text-secondary">{{ exam.info }}</p>
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="text-teal-accent font-semibold text-xs hover:underline flex items-center gap-1"
+              @click="openEditExamModal(exam)">
+              <span class="material-symbols-outlined" style="font-size:14px;">edit</span>编辑
+            </button>
+            <button class="text-teal-accent font-semibold text-xs hover:underline flex items-center gap-1"
+              @click="confirmPublishExam(exam)">
+              <span class="material-symbols-outlined" style="font-size:14px;">publish</span>发布
+            </button>
+            <button class="text-text-secondary font-semibold text-xs hover:text-error-red flex items-center gap-1"
+              @click="confirmDeleteExam(exam)">
+              <span class="material-symbols-outlined" style="font-size:14px;">delete</span>删除
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════════ MODAL SYSTEM ═══════════════ -->
+<div v-if="isLoggedIn" class="modal-root" :class="{ active: modalActive }">
+  <div class="modal-backdrop" @click="closeModal"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="font-headline font-bold text-text-primary" style="font-size:20px;">{{ modalTitle }}</h3>
+      <button class="text-text-secondary hover:text-oxford-blue p-1" @click="closeModal">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="modal-body" v-html="modalBody"></div>
+    <div class="modal-footer">
+      <button class="border border-gray-200 text-text-secondary rounded-xl px-4 py-2 font-semibold text-xs hover:bg-gray-100"
+        @click="closeModal">取消</button>
+      <button class="bg-oxford-blue text-white rounded-xl px-4 py-2 font-semibold text-xs hover:bg-oxford-hover"
+        @click="confirmModal">{{ modalConfirmLabel }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TOAST CONTAINER ═══════════════ -->
+<div v-if="isLoggedIn" class="toast-root" id="toast-root">
+  <div v-for="t in toasts" :key="t._id"
+    class="toast" :class="t.type">
+    <span class="material-symbols-outlined" style="font-size:16px;">{{ t.icon }}</span>
+    <span>{{ t.message }}</span>
+  </div>
+</div>
+
+</div><!-- /#app -->
+
+<!-- ═══════════════ VUE APPLICATION ═══════════════ -->
+<script>
+const { createApp, ref, reactive, computed, watch, onMounted, nextTick } = Vue;
+
+const app = createApp({
+  setup() {
+    // ── 登录状态 ──
+    const isLoggedIn = ref(!!localStorage.getItem('chemai_token'));
+    const loginLoading = ref(false);
+    const loginError = ref('');
+    const loginForm = reactive({ username: 'teacher1', password: '123456', role: 'teacher' });
+
+    const doLogin = async () => {
+      loginLoading.value = true;
+      loginError.value = '';
+      try {
+        const res = await fetch('http://localhost:8000/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginForm),
+        });
+        const data = await res.json();
+        if (data.success) {
+          localStorage.setItem('chemai_token', data.data.token);
+          localStorage.setItem('chemai_user', JSON.stringify({ name: data.data.name, role: data.data.role }));
+          isLoggedIn.value = true;
+          showToast(`欢迎回来，${data.data.name}`, 'success');
+        } else {
+          loginError.value = data.message || '登录失败';
+        }
+      } catch (e) {
+        loginError.value = '网络错误，请确认后端已启动';
+      } finally {
+        loginLoading.value = false;
+      }
+    };
+
+    // ── 1. 基础骨架搭建 ──
+
+    // Tab 状态
+    const tabs = [
+      { id: 'tab-1', label: '出题工作台' },
+      { id: 'tab-2', label: '题库管理' },
+      { id: 'tab-3', label: '历史真题库' },
+      { id: 'tab-4', label: '考试列表' },
+    ];
+    const activeTab = ref('tab-1');
+    const switchTab = (id) => { activeTab.value = id; };
+
+    // 子模式
+    const modes = [
+      { id: 'ai', label: 'AI生成' },
+      { id: 'manual', label: '手动录入' },
+      { id: 'ocr', label: 'OCR导入' },
+    ];
+    const activeMode = ref('ai');
+
+    // 题目类型
+    const questionTypes = [
+      { val: 'choice', label: '选择题' },
+      { val: 'fill', label: '填空题' },
+      { val: 'calc', label: '计算题' },
+      { val: 'experiment', label: '实验题' },
+      { val: 'inference', label: '推断题' },
+    ];
+
+    // ── Tab 1 - AI 生成参数 ──
+    const aiParams = reactive({
+      question_types: [],
+      difficulty: 'medium',
+      knowledge_points: [],
+      variant_source: '',
+      target_bank: '化学基本概念',
+      is_variant: false,
+    });
+    const aiGenerating = ref(false);
+
+    const toggleQuestionType = (val) => {
+      const idx = aiParams.question_types.indexOf(val);
+      if (idx >= 0) aiParams.question_types.splice(idx, 1);
+      else aiParams.question_types.push(val);
+    };
+
+    // 知识点搜索
+    const kpSearchText = ref('');
+    const kpSearchFocused = ref(false);
+    const kpSearchResults = ref([]);
+    let kpDebounceTimer = null;
+
+    const onKpSearchInput = () => {
+      clearTimeout(kpDebounceTimer);
+      const q = kpSearchText.value.trim();
+      if (!q) { kpSearchResults.value = []; return; }
+      kpDebounceTimer = setTimeout(() => searchKp(q), 300);
+    };
+    const kpSearchBlur = () => {
+      setTimeout(() => { kpSearchFocused.value = false; }, 200);
+    };
+    const searchKp = async (q) => {
+      try {
+        const data = await apiFetch(`/api/questions/kps?q=${encodeURIComponent(q)}`);
+        if (data && data.success && data.data) {
+          kpSearchResults.value = data.data;
+        }
+      } catch(e) { /* silently fail */ }
+    };
+    const addKnowledgePoint = (kp) => {
+      if (!aiParams.knowledge_points.includes(kp.name)) {
+        aiParams.knowledge_points.push(kp.name);
+      }
+      kpSearchText.value = '';
+      kpSearchResults.value = [];
+      kpSearchFocused.value = false;
+    };
+
+    // ── Tab 1 - 手动录入 ──
+    const manualForm = reactive({
+      type: 'choice', difficulty: 'medium',
+      content: '', options_str: '', answer: '', analysis: '',
+      knowledge_points_str: '', target_bank: '化学基本概念',
+    });
+    const manualErrors = reactive({ content: '', answer: '' });
+    const manualSubmitting = ref(false);
+
+    // ── Tab 1 - OCR ──
+    const ocrDragOver = ref(false);
+    const ocrPreview = ref(null); // { estimated, summary }
+
+    const onOcrDrop = (e) => {
+      ocrDragOver.value = false;
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        // 模拟识别预览
+        ocrPreview.value = { estimated: 3, summary: '氧化还原反应、离子方程式、晶胞密度计算' };
+        showToast(`已接收 ${files.length} 个文件`, 'info');
+      }
+    };
+    const startOcr = () => {
+      showToast('OCR 识别功能即将上线', 'info');
+    };
+
+    // ── 题目卡片 ──
+    const questionCards = ref([]);
+    const cardsLoading = ref(false);
+
+    // ── Tab 2 - 题库管理 ──
+    const bankFolders = [
+      '全部题目', '化学基本概念', '元素及其化合物',
+      '化学反应原理', '有机化学基础', '化学实验与探究',
+      '化学计算', '月考', '期中期末考试',
+    ];
+    const selectedBankFolder = ref('全部题目');
+    const bankQuestions = ref([]);
+    const bankLoading = ref(false);
+    const allBankSelected = ref(false);
+    const bankSelectedCount = computed(() => bankQuestions.value.filter(q => q._selected).length);
+
+    // ── Tab 3 - 历史真题 ──
+    const historicalSearch = ref('');
+    const historicalRegion = ref('');
+    const historicalYear = ref('');
+    const historicalRegions = ['全国卷', '北京卷', '上海卷', '江苏卷', '湖南卷'];
+    const historicalYears = [2024, 2023, 2022, 2021, 2020, 2019, 2018];
+
+    const historicalPapers = ref([
+      { id: 'p1', region: '全国卷', year: 2023, name: '2023年普通高等学校招生全国统一考试（新课标卷）', subject: '理科综合', total_score: 300, question_count: 38 },
+      { id: 'p2', region: '北京卷', year: 2024, name: '2024年北京市普通高中学业水平等级性考试', subject: '化学', total_score: 100, question_count: 20 },
+      { id: 'p3', region: '江苏卷', year: 2022, name: '2022年江苏省普通高中学业水平选择性考试', subject: '化学', total_score: 120, question_count: 23 },
+      { id: 'p4', region: '湖南卷', year: 2024, name: '2024年湖南省普通高中学业水平选择性考试', subject: '化学', total_score: 100, question_count: 22 },
+      { id: 'p5', region: '全国卷', year: 2022, name: '2022年普通高等学校招生全国统一考试（甲卷）', subject: '理科综合', total_score: 300, question_count: 35 },
+    ]);
+
+    const filteredHistoricalPapers = computed(() => {
+      let papers = historicalPapers.value;
+      if (historicalSearch.value) {
+        const kw = historicalSearch.value.toLowerCase();
+        papers = papers.filter(p => p.name.toLowerCase().includes(kw));
+      }
+      if (historicalRegion.value) papers = papers.filter(p => p.region === historicalRegion.value);
+      if (historicalYear.value) papers = papers.filter(p => p.year === Number(historicalYear.value));
+      return papers;
+    });
+
+    // ── Tab 4 - 考试列表 ──
+    const exams = ref([
+      { _id: 'e1', name: '高三第一次模拟考试（理科）', date: '2023-10-15', status: 'active', info: '参与班级: 高三1班, 高三2班' },
+      { _id: 'e2', name: '高二下学期期末考试', date: '2023-09-01', status: 'ended', info: '阅卷进度: 100%' },
+      { _id: 'e3', name: '月度摸底测验（理化生）', date: '--', status: 'draft', info: '缺题数: 5题' },
+    ]);
+
+    const examStatusLabel = (s) => ({ draft: '草稿', active: '进行中', ended: '已结束' }[s] || s);
+    const examStatusClass = (s) => ({
+      draft: 'exam-tag-draft', active: 'exam-tag-active', ended: 'exam-tag-ended'
+    }[s] || '');
+
+    // ── Modal 系统 ──
+    const modalActive = ref(false);
+    const modalTitle = ref('');
+    const modalBody = ref('');
+    const modalConfirmLabel = ref('确认');
+    let modalCallback = null;
+
+    const openModal = (title, bodyHtml, confirmLabel, callback) => {
+      modalTitle.value = title;
+      modalBody.value = bodyHtml;
+      modalConfirmLabel.value = confirmLabel || '确认';
+      modalCallback = callback || null;
+      modalActive.value = true;
+    };
+    const closeModal = () => { modalActive.value = false; modalCallback = null; };
+    const confirmModal = () => {
+      if (modalCallback) modalCallback();
+      closeModal();
+    };
+
+    // ── Toast 系统 ──
+    const toasts = ref([]);
+    let toastId = 0;
+    const showToast = (message, type = 'info') => {
+      const icons = { success: 'check_circle', error: 'error', info: 'info' };
+      const t = { _id: ++toastId, message, type, icon: icons[type] || 'info' };
+      toasts.value.push(t);
+      setTimeout(() => {
+        const idx = toasts.value.findIndex(x => x._id === t._id);
+        if (idx >= 0) toasts.value.splice(idx, 1);
+      }, 3000);
+    };
+
+    // ── API 封装 ──
+    const API_BASE = 'http://localhost:8000';
+    const apiFetch = async (url, options = {}) => {
+      const token = localStorage.getItem('chemai_token');
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(API_BASE + url, { ...options, headers });
+      if (res.status === 401) {
+        localStorage.removeItem('chemai_token');
+        showToast('登录已过期，请重新登录', 'error');
+        return null;
+      }
+      if (!res.ok) {
+        showToast(`请求失败: ${res.status}`, 'error');
+        return null;
+      }
+      return await res.json();
+    };
+
+    // ── 化学式渲染 ──
+
+    // 7.1 normalizeFormula
+    const normalizeFormula = (text) => {
+      if (!text) return '';
+      let t = text;
+      t = t.replace(/→/g, '\\rightarrow');
+      t = t.replace(/⇌/g, '\\rightleftharpoons');
+      t = t.replace(/↑/g, '\\uparrow');
+      t = t.replace(/↓/g, '\\downarrow');
+      // 检测裸化学式（不在 $ 内的元素+数字组合），用 \ce{...} 包裹
+      // 简单处理：把常见的错误格式包裹
+      return t;
+    };
+
+    // 7.2 renderChemistry
+    const renderChemistry = (text) => {
+      if (!text) return '';
+      let result = normalizeFormula(text);
+      // 渲染 $...$ 包裹的 LaTeX
+      result = result.replace(/\$([^$]+)\$/g, (match, formula) => {
+        try {
+          return katex.renderToString(formula, { throwOnError: false, trust: true });
+        } catch(e) {
+          return `<span class="text-error-red">[渲染错误: ${formula}]</span>`;
+        }
+      });
+      return result;
+    };
+
+    // 7.3+7.4 渲染题目内容预览
+    const renderContentPreview = (card) => {
+      let text = '';
+      if (typeof card.content_i18n === 'object' && card.content_i18n !== null) {
+        text = card.content_i18n.zh || Object.values(card.content_i18n)[0] || '';
+      } else if (typeof card.content === 'string') {
+        text = card.content;
+      }
+      // 截取前 200 字符
+      text = text.substring(0, 200);
+      return renderChemistry(text);
+    };
+
+    // ── 审核徽章 ──
+    const parseAuditBadges = (card) => {
+      const report = card.audit_report;
+      if (!report || !report.audits) return null;
+      const dimLabels = { balancing: '系数', conditions: '条件', product_stability: '产物', structure: '结构' };
+      return report.audits.map(a => {
+        const css = a.status === 'passed' ? 'pass' : a.status === 'warning' ? 'warning' : 'blocked';
+        const icon = a.status === 'passed' ? '✓' : a.status === 'warning' ? '⚠' : '✗';
+        return { label: dimLabels[a.dimension] || a.dimension, css, icon };
+      });
+    };
+
+    const getCardTitle = (card) => {
+      if (typeof card.content_i18n === 'object' && card.content_i18n !== null) {
+        return (card.content_i18n.zh || '').replace(/\$[^$]*\$/g, '').substring(0, 30);
+      }
+      return (card.content || '').substring(0, 30);
+    };
+
+    const getCardBorderClass = (card) => {
+      const report = card.audit_report;
+      if (!report) return 'border-l-gray-200';
+      if (report.overall_status === 'blocked') return 'border-l-error-red';
+      if (report.overall_status === 'warning') return 'border-l-orange-300';
+      return 'border-l-oxford-blue';
+    };
+
+    const typeLabel = (t) => {
+      const m = { choice: '选择题', fill: '填空题', calc: '计算题', experiment: '实验题', inference: '推断题' };
+      return m[t] || t;
+    };
+    const diffLabel = (d) => {
+      const m = { easy: '简单', medium: '中等', hard: '困难', competition: '竞赛' };
+      return m[d] || d;
+    };
+
+    // ── 卡片操作 ──
+    const removeCard = (idx) => {
+      openModal('删除题目', '<p class="text-sm text-text-secondary">确认从列表中移除该题目？</p>', '确认删除', () => {
+        questionCards.value.splice(idx, 1);
+        showToast('题目已移除', 'success');
+      });
+    };
+
+    const editCard = (idx) => {
+      const card = questionCards.value[idx];
+      let content = '';
+      if (typeof card.content_i18n === 'object') content = card.content_i18n.zh || '';
+      else if (card.content) content = card.content;
+      openModal('编辑题目',
+        `<div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">题干</label><textarea class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" rows="4" id="edit-content">${escapeHtml(content)}</textarea></div>
+        </div>`,
+        '保存',
+        () => {
+          const el = document.getElementById('edit-content');
+          if (el) {
+            if (typeof card.content_i18n === 'object') card.content_i18n.zh = el.value;
+            else card.content = el.value;
+            showToast('题目已更新', 'success');
+          }
+        }
+      );
+    };
+
+    const addToExam = (card) => { showToast('已加入考试', 'success'); };
+    const addToBank = (card) => { showToast('已加入题库', 'success'); };
+
+    // ── AI 生成 ──
+    const generateQuestions = async () => {
+      if (aiParams.question_types.length === 0) {
+        showToast('请至少选择一种题型', 'error');
+        return;
+      }
+      aiGenerating.value = true;
+      cardsLoading.value = true;
+      try {
+        const body = {
+          question_types: aiParams.question_types.map(t => `${t}:3`).join(','),
+          difficulty: aiParams.difficulty,
+          knowledge_points: aiParams.knowledge_points,
+        };
+        if (aiParams.variant_source) body.variant_source = aiParams.variant_source;
+        const data = await apiFetch('/api/questions/generate', {
+          method: 'POST', body: JSON.stringify(body),
+        });
+        if (data) {
+          if (data.data && data.data.status === 'not_implemented') {
+            showToast('AI 生成即将上线，请先使用手动录入模式', 'info');
+          } else if (data.data && data.data.questions) {
+            const cards = data.data.questions.map(q => ({ ...q, _auditBadges: parseAuditBadges(q) }));
+            questionCards.value = [...cards, ...questionCards.value];
+            showToast(`已生成 ${cards.length} 道题目`, 'success');
+          } else {
+            showToast('生成完成', 'success');
+          }
+        }
+      } catch(e) {
+        showToast('生成失败，请重试', 'error');
+      } finally {
+        aiGenerating.value = false;
+        cardsLoading.value = false;
+      }
+    };
+
+    // ── 手动录入 ──
+    const submitManual = async () => {
+      // 验证
+      let hasError = false;
+      manualErrors.content = '';
+      manualErrors.answer = '';
+      if (!manualForm.content.trim()) { manualErrors.content = '请填写题干'; hasError = true; }
+      if (!manualForm.answer.trim()) { manualErrors.answer = '请填写答案'; hasError = true; }
+      if (hasError) return;
+
+      manualSubmitting.value = true;
+      try {
+        const optionsArr = manualForm.options_str.trim()
+          ? manualForm.options_str.split('\n').filter(l => l.trim())
+          : [];
+        const kps = manualForm.knowledge_points_str.trim()
+          ? manualForm.knowledge_points_str.split(/[,，]/).map(s => s.trim()).filter(Boolean)
+          : [];
+
+        const body = {
+          type: manualForm.type,
+          difficulty: manualForm.difficulty,
+          content_i18n: { zh: manualForm.content.trim() },
+          options_i18n: optionsArr.length ? { zh: optionsArr } : null,
+          answer_i18n: { zh: manualForm.answer.trim() },
+          analysis_i18n: manualForm.analysis.trim() ? { zh: manualForm.analysis.trim() } : null,
+          knowledge_points: kps,
+        };
+        const data = await apiFetch('/api/questions/import', {
+          method: 'POST', body: JSON.stringify(body),
+        });
+        if (data && data.data) {
+          const q = data.data;
+          // 判断是否含方程式
+          const contentText = q.content_i18n?.zh || '';
+          q._hasEquation = /(->|→|=)/.test(contentText);
+          q._auditBadges = parseAuditBadges(q);
+          questionCards.value = [q, ...questionCards.value];
+          activeMode.value = 'ai'; // 切换到 AI 模式看结果
+          showToast('题目已保存并完成审核', 'success');
+          // 清空表单
+          manualForm.content = ''; manualForm.options_str = '';
+          manualForm.answer = ''; manualForm.analysis = ''; manualForm.knowledge_points_str = '';
+        }
+      } catch(e) {
+        showToast('提交失败，请重试', 'error');
+      } finally {
+        manualSubmitting.value = false;
+      }
+    };
+
+    // ── 题库操作 ──
+    const getBankIcon = (name) => {
+      const icons = {
+        '全部题目': 'folder', '化学基本概念': 'science', '元素及其化合物': 'dashboard',
+        '化学反应原理': 'bolt', '有机化学基础': 'hexagon', '化学实验与探究': 'experiment',
+        '化学计算': 'calculate', '月考': 'event_note', '期中期末考试': 'fact_check',
+      };
+      return icons[name] || 'folder';
+    };
+
+    const loadBankQuestions = async () => {
+      bankLoading.value = true;
+      try {
+        const data = await apiFetch('/api/questions/?limit=50');
+        if (data && data.data) {
+          bankQuestions.value = data.data.map(q => ({ ...q, _selected: false }));
+        }
+      } catch(e) {
+        showToast('加载题库失败', 'error');
+      } finally {
+        bankLoading.value = false;
+      }
+    };
+
+    const getBankCardTitle = (q) => {
+      if (typeof q.content_i18n === 'object' && q.content_i18n !== null) {
+        return (q.content_i18n.zh || '').replace(/\$[^$]*\$/g, '').substring(0, 30);
+      }
+      return (q.content || '').substring(0, 30);
+    };
+
+    const toggleAllBank = () => {
+      allBankSelected.value = !allBankSelected.value;
+      bankQuestions.value.forEach(q => q._selected = allBankSelected.value);
+    };
+    const updateBankSelection = () => {
+      allBankSelected.value = bankQuestions.value.length > 0 && bankQuestions.value.every(q => q._selected);
+    };
+
+    const batchMove = () => {
+      const count = bankSelectedCount.value;
+      if (!count) { showToast('请先选择题目', 'error'); return; }
+      const options = bankFolders.map(b => `<option value="${b}">${b}</option>`).join('');
+      openModal('移动到目标题库',
+        `<div class="flex flex-col gap-2"><label class="text-xs font-semibold text-text-secondary">目标题库</label><select id="move-target" class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none">${options}</select></div>`,
+        '移动', () => {
+          const target = document.getElementById('move-target')?.value;
+          if (target) {
+            bankQuestions.value.forEach(q => { if (q._selected) q._selected = false; });
+            updateBankSelection();
+            showToast(`已将 ${count} 道题目移动到 ${target}`, 'success');
+          }
+        }
+      );
+    };
+
+    const batchDeleteBank = () => {
+      const count = bankSelectedCount.value;
+      if (!count) { showToast('请先选择题目', 'error'); return; }
+      openModal('删除所选题目', `<p class="text-sm text-text-secondary">确认删除选中的 ${count} 道题目？</p>`, '确认删除', () => {
+        bankQuestions.value = bankQuestions.value.filter(q => !q._selected);
+        updateBankSelection();
+        showToast(`已删除 ${count} 道题目`, 'success');
+      });
+    };
+
+    // ── 考试操作 ──
+    const openCreateExamModal = () => {
+      openModal('创建考试',
+        `<div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-name" value="高三第三次模拟考试"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试日期</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" type="date" id="exam-date" value="2026-09-10"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">参与班级</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-class" value="高三1班, 高三2班"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">状态</label><select class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-status"><option value="draft">草稿</option><option value="active">进行中</option></select></div>
+        </div>`,
+        '创建考试', () => {
+          const name = document.getElementById('exam-name')?.value || '未命名考试';
+          const date = document.getElementById('exam-date')?.value || '--';
+          const cls = document.getElementById('exam-class')?.value || '';
+          const status = document.getElementById('exam-status')?.value || 'draft';
+          exams.value.unshift({ _id: 'e' + Date.now(), name, date, status, info: cls ? `参与班级: ${cls}` : '' });
+          showToast('考试创建成功', 'success');
+        }
+      );
+    };
+
+    const openEditExamModal = (exam) => {
+      openModal('编辑考试',
+        `<div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="edit-exam-name" value="${escapeHtml(exam.name)}"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试日期</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" type="date" id="edit-exam-date" value="${exam.date}"></div>
+        </div>`,
+        '保存', () => {
+          exam.name = document.getElementById('edit-exam-name')?.value || exam.name;
+          exam.date = document.getElementById('edit-exam-date')?.value || exam.date;
+          showToast('考试信息已保存', 'success');
+        }
+      );
+    };
+
+    const confirmPublishExam = (exam) => {
+      openModal('发布考试', '<p class="text-sm text-text-secondary">发布后学生可立即参加考试，确认发布？</p>', '确认发布', () => {
+        exam.status = 'active';
+        showToast('考试已发布', 'success');
+      });
+    };
+
+    const confirmDeleteExam = (exam) => {
+      openModal('删除考试', '<p class="text-sm text-text-secondary">删除后不可恢复，确认删除该考试？</p>', '确认删除', () => {
+        const idx = exams.value.indexOf(exam);
+        if (idx >= 0) exams.value.splice(idx, 1);
+        showToast('考试已删除', 'success');
+      });
+    };
+
+    // ── 辅助 ──
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+    // 全局 escapeHtml 给 modal body 用
+    window.escapeHtml = escapeHtml;
+
+    return {
+      isLoggedIn, loginForm, loginLoading, loginError, doLogin,
+      tabs, activeTab, switchTab,
+      modes, activeMode,
+      questionTypes,
+      aiParams, aiGenerating, toggleQuestionType,
+      kpSearchText, kpSearchFocused, kpSearchResults,
+      onKpSearchInput, kpSearchBlur, addKnowledgePoint,
+      manualForm, manualErrors, manualSubmitting, submitManual,
+      ocrDragOver, ocrPreview, onOcrDrop, startOcr,
+      questionCards, cardsLoading,
+      bankFolders, selectedBankFolder, bankQuestions, bankLoading,
+      allBankSelected, bankSelectedCount,
+      loadBankQuestions, getBankIcon, getBankCardTitle,
+      toggleAllBank, updateBankSelection, batchMove, batchDeleteBank,
+      historicalSearch, historicalRegion, historicalYear,
+      historicalRegions, historicalYears, historicalPapers, filteredHistoricalPapers,
+      exams, examStatusLabel, examStatusClass,
+      openCreateExamModal, openEditExamModal, confirmPublishExam, confirmDeleteExam,
+      modalActive, modalTitle, modalBody, modalConfirmLabel,
+      openModal, closeModal, confirmModal,
+      toasts, showToast,
+      renderChemistry, renderContentPreview, normalizeFormula,
+      parseAuditBadges, getCardTitle, getCardBorderClass, typeLabel, diffLabel,
+      removeCard, editCard, addToExam, addToBank,
+      generateQuestions,
+    };
+  },
+});
+
+app.mount('#app');
+</script>
+
+</body>
+</html>

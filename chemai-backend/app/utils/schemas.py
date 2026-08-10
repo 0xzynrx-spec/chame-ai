@@ -17,6 +17,7 @@ class UserContext(BaseModel):
     user_id: str
     role: str
     school_id: str | None = None
+    entity_id: str | None = None
 
 
 # ── 认证相关 ─────────────────────────────────────────

@@ -1,0 +1,44 @@
+name: ChemAI Backend CI
+
+on:
+  push:
+    branches: [main, master, "phase-*", "feat/*"]
+    paths:
+      - "chemai-backend/**"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "chemai-backend/**"
+
+jobs:
+  test:
+    name: 运行测试 (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    defaults:
+      run:
+        working-directory: chemai-backend
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 运行全量测试
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: 运行 86 道确定性审核测试
+        run: python -m pytest tests/test_audit_engine.py -v --tb=short -k "Balance or Conditions or ProductStability or Structure or Integration"

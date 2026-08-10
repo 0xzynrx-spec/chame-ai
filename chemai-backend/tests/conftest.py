@@ -143,9 +143,13 @@ def parent_account(db_session: Session, parent: Parent) -> Account:
 
 @pytest.fixture
 def teacher_token(teacher_account: Account, teacher: Teacher) -> str:
-    return create_access_token(teacher_account.id, "teacher", teacher.school_id)
+    return create_access_token(
+        teacher_account.id, "teacher", teacher.school_id, entity_id=teacher.id
+    )
 
 
 @pytest.fixture
 def student_token(student_account: Account, student: Student, class_: Class, grade: Grade) -> str:
-    return create_access_token(student_account.id, "student", grade.school_id)
+    return create_access_token(
+        student_account.id, "student", grade.school_id, entity_id=student.id
+    )

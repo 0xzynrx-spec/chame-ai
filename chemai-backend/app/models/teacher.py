@@ -44,6 +44,12 @@ class Teacher(Base, TimestampMixin):
     teacher_class_subjects = relationship(
         "TeacherClassSubject", back_populates="teacher", lazy="selectin"
     )
+    questions = relationship(
+        "Question", back_populates="teacher", lazy="selectin"
+    )
+    question_sets = relationship(
+        "QuestionSet", back_populates="teacher", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<Teacher(id={self.id}, name={self.name}, role={self.role})>"

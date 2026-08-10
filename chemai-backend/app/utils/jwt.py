@@ -12,13 +12,16 @@ import jwt
 from app.config import settings
 
 
-def create_access_token(user_id: str, role: str, school_id: str | None = None) -> str:
+def create_access_token(
+    user_id: str, role: str, school_id: str | None = None, entity_id: str | None = None
+) -> str:
     """签发 access token（24 小时有效）
 
     Args:
-        user_id: 用户唯一标识
+        user_id: 用户唯一标识（Account.id）
         role: 角色（admin / teacher / student / parent）
         school_id: 学校 ID（parent 角色不携带）
+        entity_id: 角色实体 ID（Teacher.id / Student.id 等）
 
     Returns:
         JWT access token 字符串
@@ -28,6 +31,7 @@ def create_access_token(user_id: str, role: str, school_id: str | None = None) -
         "user_id": user_id,
         "role": role,
         "school_id": school_id,
+        "entity_id": entity_id,
         "type": "access",
         "iat": now,
         "exp": now + timedelta(minutes=settings.access_token_expire_minutes),

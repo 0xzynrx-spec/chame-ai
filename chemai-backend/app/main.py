@@ -18,11 +18,7 @@ def create_app() -> FastAPI:
     )
 
     # ── 全局中间件 ──────────────────────────────
-    # 1. JWT 认证中间件（最先执行）
-    from app.middleware.auth import JWTAuthMiddleware
-    app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
-
-    # 2. CORS 中间件
+    # 1. CORS 中间件（最外层，处理预检请求）
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -31,12 +27,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # 2. JWT 认证中间件（CORS 处理后执行）
+    from app.middleware.auth import JWTAuthMiddleware
+    app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
+
     # ── 注册路由 ────────────────────────────────
-    from app.api.auth import router as auth_router
-    from app.api.users import router as users_router
+    from app.api import auth_router, audit_router, questions_router, users_router
 
     app.include_router(auth_router)
     app.include_router(users_router)
+    app.include_router(audit_router)
+    app.include_router(questions_router)
 
     # ── 健康检查 ────────────────────────────────
     @app.get("/health")

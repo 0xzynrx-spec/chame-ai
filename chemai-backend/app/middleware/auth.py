@@ -30,6 +30,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         self.whitelist = whitelist or AUTH_WHITELIST
 
     async def dispatch(self, request: Request, call_next):
+        # OPTIONS 预检请求跳过认证（CORS 中间件会处理）
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # 白名单路径跳过认证
         path = request.url.path
         if any(path.startswith(prefix) for prefix in self.whitelist):
@@ -86,5 +90,6 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         request.state.user_id = payload["user_id"]
         request.state.role = payload["role"]
         request.state.school_id = payload.get("school_id")
+        request.state.entity_id = payload.get("entity_id")
 
         return await call_next(request)

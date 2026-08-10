@@ -44,4 +44,5 @@ def get_current_user(request: Request) -> UserContext:
         user_id=user_id,
         role=role,
         school_id=getattr(request.state, "school_id", None),
+        entity_id=getattr(request.state, "entity_id", None),
     )

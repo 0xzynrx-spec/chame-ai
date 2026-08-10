@@ -74,3 +74,26 @@ def check_permission(role: str, resource: str, action: str) -> bool:
         return ROLE_PERMISSIONS[role][resource][action]
     except KeyError:
         return False
+
+
+def require_role(user, allowed_roles: list[str]) -> None:
+    """断言当前用户拥有指定角色之一，否则抛出 403
+
+    Args:
+        user: UserContext 对象
+        allowed_roles: 允许的角色列表
+
+    Raises:
+        HTTPException: 403 PERMISSION_DENIED
+    """
+    from fastapi import HTTPException
+
+    if user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "detail": f"角色 {user.role} 无权执行此操作",
+                "error_code": "PERMISSION_DENIED",
+                "suggestion": f"需要以下角色之一: {', '.join(allowed_roles)}",
+            },
+        )

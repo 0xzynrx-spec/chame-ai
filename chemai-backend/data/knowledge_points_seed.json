@@ -1,0 +1,482 @@
+[
+  {
+    "name": "物质的量",
+    "category": "基本概念与计算",
+    "description": "物质的量（n）概念、单位（mol）、阿伏伽德罗常数（NA=6.02×10²³）",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "摩尔质量",
+    "category": "基本概念与计算",
+    "description": "摩尔质量（M）概念、数值等于相对原子/分子质量、单位 g/mol",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "气体摩尔体积",
+    "category": "基本概念与计算",
+    "description": "标准状况（0°C、101kPa）下 1mol 气体体积约 22.4L",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "物质的量浓度",
+    "category": "基本概念与计算",
+    "description": "c=n/V，单位 mol/L，以及溶液配制与稀释计算",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "阿伏伽德罗定律",
+    "category": "基本概念与计算",
+    "description": "同温同压下，相同体积的气体含相同分子数",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "质量守恒定律",
+    "category": "基本概念与计算",
+    "description": "化学反应前后物质总质量不变，是化学方程式配平的依据",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "化学方程式配平",
+    "category": "基本概念与计算",
+    "description": "根据质量守恒配平化学方程式（最小公倍数法、待定系数法、氧化数法）",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "原子结构",
+    "category": "物质结构与元素周期律",
+    "description": "原子核（质子、中子）+ 核外电子排布（电子层、能级）",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "核外电子排布",
+    "category": "物质结构与元素周期律",
+    "description": "电子层 K/L/M/N、能级 s/p/d/f、构造原理与洪特规则",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "元素周期表",
+    "category": "物质结构与元素周期律",
+    "description": "周期（横行）和族（纵列）的结构，元素在周期表中的位置与性质",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "元素周期律",
+    "category": "物质结构与元素周期律",
+    "description": "元素性质（原子半径、电离能、电负性、金属性/非金属性）的周期性变化规律",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "化学键",
+    "category": "物质结构与元素周期律",
+    "description": "离子键、共价键（非极性/极性）、金属键的形成与特征",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "分子间作用力",
+    "category": "物质结构与元素周期律",
+    "description": "范德华力、氢键的形成条件和对物质性质（熔点、沸点、溶解度）的影响",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "晶体类型",
+    "category": "物质结构与元素周期律",
+    "description": "离子晶体、分子晶体、原子晶体、金属晶体的结构与性质",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "离子键与离子化合物",
+    "category": "物质结构与元素周期律",
+    "description": "离子键的形成（电负性差 >1.7）、离子晶体的性质（高熔点、导电性）",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "共价键与分子构型",
+    "category": "物质结构与元素周期律",
+    "description": "σ键/π键、杂化轨道理论、VSEPR模型与分子空间构型",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "氧化还原反应基础",
+    "category": "化学反应原理",
+    "description": "氧化/还原概念、氧化数变化、氧化剂与还原剂的判断",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "氧化还原反应配平",
+    "category": "化学反应原理",
+    "description": "氧化数法配平氧化还原方程式（得失电子守恒）",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "离子反应",
+    "category": "化学反应原理",
+    "description": "电解质/非电解质、离子反应发生的条件（沉淀/气体/弱电解质）、离子方程式书写",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "离子共存",
+    "category": "化学反应原理",
+    "description": "溶液中离子共存条件（不生成沉淀/气体/络合物），注意酸碱性环境",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "化学反应速率",
+    "category": "化学反应原理",
+    "description": "速率概念、活化能、浓度/温度/压强/催化剂对速率的影响",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "化学平衡",
+    "category": "化学反应原理",
+    "description": "可逆反应、化学平衡状态特征（动/等/定/变）、平衡常数 K",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "勒夏特列原理",
+    "category": "化学反应原理",
+    "description": "浓度/温度/压强改变对化学平衡的影响方向判断",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "化学平衡常数",
+    "category": "化学反应原理",
+    "description": "K 表达式与计算、浓度商 Q 与 K 比较判断平衡移动方向",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "弱电解质电离平衡",
+    "category": "化学反应原理",
+    "description": "弱酸/弱碱的电离平衡、电离度、同离子效应",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "水的电离与 pH",
+    "category": "化学反应原理",
+    "description": "水的离子积 Kw、pH 定义与计算、酸碱指示剂",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "盐类水解",
+    "category": "化学反应原理",
+    "description": "盐类水解原理与规律（谁弱谁水解、谁强显谁性）、水解方程式",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "沉淀溶解平衡",
+    "category": "化学反应原理",
+    "description": "溶度积 Ksp、沉淀的生成与溶解、沉淀转化",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "原电池原理",
+    "category": "化学反应原理",
+    "description": "原电池构成条件、正负极判断、电极反应式书写",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "电解原理",
+    "category": "化学反应原理",
+    "description": "电解池构成、阴阳极判断、放电顺序、电极反应式书写",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "金属腐蚀与防护",
+    "category": "化学反应原理",
+    "description": "电化学腐蚀（析氢/吸氧）、牺牲阳极法、外加电流法",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "反应热与焓变",
+    "category": "化学反应原理",
+    "description": "焓变 ΔH、放热/吸热反应、热化学方程式书写",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "盖斯定律",
+    "category": "化学反应原理",
+    "description": "反应热只与始末态有关、热化学方程式的加减运算",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "燃烧热与中和热",
+    "category": "化学反应原理",
+    "description": "燃烧热定义、中和热测定实验、能源利用",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "钠及其化合物",
+    "category": "元素化合物",
+    "description": "Na 与水/氧气反应、Na₂O/Na₂O₂ 性质、NaOH、Na₂CO₃/NaHCO₃",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "铝及其化合物",
+    "category": "元素化合物",
+    "description": "Al 的两性、Al₂O₃/Al(OH)₃ 两性、铝热反应、明矾净水",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "铁及其化合物",
+    "category": "元素化合物",
+    "description": "Fe 与酸/O₂/H₂O 反应、Fe²⁺/Fe³⁺ 相互转化与检验、铁盐/亚铁盐",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "铜及其化合物",
+    "category": "元素化合物",
+    "description": "Cu 的性质、CuO/Cu(OH)₂、CuSO₄·5H₂O、铜的冶炼",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "氯及其化合物",
+    "category": "元素化合物",
+    "description": "Cl₂ 的化学性质、氯水、漂白粉、HCl 与盐酸、Cl₂ 的实验室制法",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "硫及其化合物",
+    "category": "元素化合物",
+    "description": "S 的性质、SO₂（漂白性/还原性）、浓 H₂SO₄（氧化性/吸水性/脱水性）、硫酸工业",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "氮及其化合物",
+    "category": "元素化合物",
+    "description": "N₂ 的稳定性、NH₃ 的性质与实验室制法、NO/NO₂、HNO₃（氧化性）、硝酸工业",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "硅及其化合物",
+    "category": "元素化合物",
+    "description": "Si 的性质、SiO₂（与 HF/NaOH 反应）、硅酸/硅酸盐、玻璃/水泥/陶瓷",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "碳及其化合物",
+    "category": "元素化合物",
+    "description": "碳的同素异形体（金刚石/石墨/C₆₀）、CO/CO₂ 性质、碳酸盐",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "碱金属",
+    "category": "元素化合物",
+    "description": "碱金属族（Li/Na/K/Rb/Cs）性质递变规律、焰色反应",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "卤族元素",
+    "category": "元素化合物",
+    "description": "卤族（F/Cl/Br/I）性质递变规律、卤素间的置换反应",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "烷烃",
+    "category": "有机化学",
+    "description": "烷烃通式 CnH₂n₊₂、同系物、同分异构现象、命名规则、取代反应",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "烯烃与炔烃",
+    "category": "有机化学",
+    "description": "烯烃/炔烃的结构与通式、加成反应、聚合反应、马氏规则",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "苯及其同系物",
+    "category": "有机化学",
+    "description": "苯的结构（大π键）、取代反应（硝化/卤代）、加成反应、同系物",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "醇与酚",
+    "category": "有机化学",
+    "description": "醇（乙醇）的结构与反应（取代/消去/氧化）、酚（苯酚）的弱酸性",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "醛与酮",
+    "category": "有机化学",
+    "description": "醛基的性质（银镜反应/斐林反应）、甲醛/乙醛、酮的性质差异",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "羧酸与酯",
+    "category": "有机化学",
+    "description": "羧酸的酸性、酯化反应与酯的水解、常见羧酸（甲酸/乙酸/苯甲酸）",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "油脂",
+    "category": "有机化学",
+    "description": "油脂的组成（高级脂肪酸甘油酯）、皂化反应、硬化（加氢）",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "糖类",
+    "category": "有机化学",
+    "description": "单糖（葡萄糖/果糖）、二糖（蔗糖/麦芽糖）、多糖（淀粉/纤维素）的结构与性质",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "蛋白质与氨基酸",
+    "category": "有机化学",
+    "description": "氨基酸的两性、肽键与多肽、蛋白质的组成与性质（变性/盐析/显色反应）",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "高分子化合物",
+    "category": "有机化学",
+    "description": "加聚反应与缩聚反应、常见高分子材料（塑料/橡胶/纤维）",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "有机合成路线",
+    "category": "有机化学",
+    "description": "有机合成中的碳链增长/缩短、官能团引入与转化、逆合成分析",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "同分异构体",
+    "category": "有机化学",
+    "description": "碳架异构/位置异构/官能团异构、立体异构（顺反/手性）、异构体数目判断",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "分散系与胶体",
+    "category": "基本概念与计算",
+    "description": "溶液/胶体/浊液的区分、胶体的丁达尔效应与电泳",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "电解质与非电解质",
+    "category": "基本概念与计算",
+    "description": "电解质/非电解质的定义与判断、强/弱电解质的区分",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "物质的分类",
+    "category": "基本概念与计算",
+    "description": "纯净物与混合物、单质与化合物、酸/碱/盐/氧化物的分类与通性",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "溶液与溶解度",
+    "category": "基本概念与计算",
+    "description": "溶解度概念、饱和/不饱和溶液、溶解度曲线、结晶方法",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "金属活动性顺序",
+    "category": "元素化合物",
+    "description": "K/Ca/Na/Mg/Al/Zn/Fe/Sn/Pb/(H)/Cu/Hg/Ag/Pt/Au 活动性顺序及其应用",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "工业制硫酸",
+    "category": "化学工艺",
+    "description": "接触法制硫酸（硫铁矿焙烧→SO₂催化氧化→SO₃ 吸收），反应条件与设备",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "工业合成氨",
+    "category": "化学工艺",
+    "description": "哈伯法合成氨：N₂+3H₂⇌2NH₃，条件选择（温度/压强/催化剂）与平衡移动",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "氯碱工业",
+    "category": "化学工艺",
+    "description": "电解饱和食盐水制 NaOH/Cl₂/H₂，离子交换膜的作用",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "铝的冶炼",
+    "category": "化学工艺",
+    "description": "电解氧化铝（冰晶石助熔）制铝，铝土矿提纯",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "铁的冶炼",
+    "category": "化学工艺",
+    "description": "高炉炼铁（CO 还原铁矿石）、转炉炼钢（氧化降碳除杂）",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "侯氏制碱法",
+    "category": "化学工艺",
+    "description": "联合制碱法：NaCl+NH₃+CO₂+H₂O→NaHCO₃↓+NH₄Cl，NaHCO₃ 煅烧得纯碱",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "石油化工",
+    "category": "化学工艺",
+    "description": "石油分馏、裂化（热裂化/催化裂化）、裂解、重整的基本原理与产物",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "化学实验基本操作",
+    "category": "化学实验",
+    "description": "常见仪器（试管/烧杯/酒精灯/量筒等）、加热/过滤/蒸发/蒸馏基本操作",
+    "difficulty_level": "easy"
+  },
+  {
+    "name": "气体实验室制法",
+    "category": "化学实验",
+    "description": "O₂/H₂/CO₂/Cl₂/NH₃/SO₂ 等气体的实验室制备原理、装置与收集方法",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "物质的检验与鉴别",
+    "category": "化学实验",
+    "description": "常见离子（SO₄²⁻/Cl⁻/CO₃²⁻/NH₄⁺/Fe³⁺等）的检验方法、气体鉴别",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "物质的分离与提纯",
+    "category": "化学实验",
+    "description": "过滤/蒸发/蒸馏/萃取/分液/重结晶/色谱等分离方法的选择与应用",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "定量实验",
+    "category": "化学实验",
+    "description": "中和滴定、一定物质的量浓度溶液配制、气体摩尔体积测定",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "实验方案设计与评价",
+    "category": "化学实验",
+    "description": "实验目的/原理/步骤/现象/结论的完整方案设计、误差分析与改进",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "物质的量相关计算",
+    "category": "化学计算",
+    "description": "n=m/M=N/NA=V/Vm=cV 的综合运用与换算",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "化学方程式计算",
+    "category": "化学计算",
+    "description": "根据化学方程式的质量/物质的量/气体体积计算（差量法/关系式法）",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "溶液 pH 计算",
+    "category": "化学计算",
+    "description": "强酸/强碱溶液的 pH 计算、酸碱混合 pH 计算、稀释后 pH 变化",
+    "difficulty_level": "medium"
+  },
+  {
+    "name": "平衡常数计算",
+    "category": "化学计算",
+    "description": "K/Ksp/Ka/Kb 的相关计算、转化率/产率计算",
+    "difficulty_level": "hard"
+  },
+  {
+    "name": "电化学计算",
+    "category": "化学计算",
+    "description": "法拉第电解定律、电极产物的质量/体积/物质的量计算",
+    "difficulty_level": "hard"
+  }
+]
