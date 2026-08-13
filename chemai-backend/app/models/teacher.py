@@ -50,6 +50,9 @@ class Teacher(Base, TimestampMixin):
     question_sets = relationship(
         "QuestionSet", back_populates="teacher", lazy="selectin"
     )
+    exams = relationship(
+        "Exam", back_populates="teacher", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<Teacher(id={self.id}, name={self.name}, role={self.role})>"

@@ -2,7 +2,7 @@
 
 建立 ChemAI 后端 FastAPI 应用的基础骨架，包括统一响应格式、标准错误码体系、CORS 跨域配置和通用分页查询参数规范，为后续 29 个 Router 模块提供一致的 API 契约。
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: 统一成功响应格式
 所有 API 成功响应 SHALL 包含 `success`（布尔值 true）、`message`（字符串）、`data`（任意类型）三个顶级字段。

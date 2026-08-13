@@ -51,6 +51,11 @@ class QuestionSet(Base, TimestampMixin):
         lazy="selectin",
     )
     teacher = relationship("Teacher", back_populates="question_sets", lazy="selectin")
+    exam_question_sets: Mapped[list["ExamQuestionSet"]] = relationship(
+        "ExamQuestionSet",
+        back_populates="question_set",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f"<QuestionSet(id={self.id!r}, name={self.name!r})>"

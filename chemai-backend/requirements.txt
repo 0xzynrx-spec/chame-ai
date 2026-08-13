@@ -25,6 +25,7 @@ apscheduler==3.10.4
 
 # Vector Database
 chromadb==0.4.22
+numpy<2.0  # chromadb 0.4.22 依赖 np.float_，numpy 2.0 已移除该别名
 
 # AI / LLM
 langchain-openai>=0.1.0

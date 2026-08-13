@@ -2,7 +2,7 @@
 
 提供四维化学方程式审核与题目管理的 REST API 端点，支撑出题工作台的题目生成、审核、管理需求，遵循统一响应格式和 RBAC 权限控制。
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: 综合审核端点
 系统 SHALL 提供 `POST /api/audit/equation` 端点，接收化学方程式字符串，返回四维完整审核报告。请求体 SHALL 包含 `equation` 字段（必填，字符串）。响应 SHALL 包含 question_id、equation、audits（四维子结果）、overall_status、overall_message。

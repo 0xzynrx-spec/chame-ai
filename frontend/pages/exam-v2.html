@@ -596,14 +596,22 @@ tailwind.config = {
     :class="{ active: activeTab === 'tab-2' }" id="tab-2">
     <!-- 左侧文件夹 -->
     <div class="w-64 shrink-0 bg-white border border-gray-200 rounded-xl p-2 flex flex-col h-full overflow-y-auto">
-      <div class="text-xs font-semibold text-text-secondary p-2 mb-2">化学题库分类</div>
-      <button v-for="b in bankFolders" :key="b"
-        class="flex w-full items-center gap-2 p-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors"
-        :class="selectedBankFolder === b ? 'bg-teal-accent/10 text-teal-accent' : 'text-text-primary hover:bg-gray-100'"
+      <div class="text-xs font-semibold text-text-secondary p-2 mb-2 flex items-center justify-between">
+        <span>化学题库分类</span>
+        <button class="material-symbols-outlined text-teal-accent cursor-pointer" style="font-size:18px;" @click="openNewFolderModal" title="新建文件夹">add</button>
+      </div>
+      <button v-for="b in bankFolders" :key="b.id"
+        class="flex w-full items-center gap-2 p-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors group"
+        :class="selectedBankFolder && selectedBankFolder.id === b.id ? 'bg-teal-accent/10 text-teal-accent' : 'text-text-primary hover:bg-gray-100'"
         @click="selectedBankFolder = b; loadBankQuestions()">
-        <span class="material-symbols-outlined" style="font-size:20px;">{{ getBankIcon(b) }}</span>
-        {{ b }}
+        <span class="material-symbols-outlined" style="font-size:20px;">{{ getBankIcon(b.name) }}</span>
+        <span class="flex-1 text-left">{{ b.name }}</span>
+        <span class="text-xs text-text-secondary">{{ b.question_count || 0 }}</span>
       </button>
+      <div class="mt-2 pt-2 border-t border-gray-200 flex gap-1">
+        <button class="text-xs text-text-secondary hover:text-text-primary cursor-pointer flex-1 text-center p-1" @click="renameFolder" title="重命名">重命名</button>
+        <button class="text-xs text-red-500 hover:text-red-700 cursor-pointer flex-1 text-center p-1" @click="deleteFolder" title="删除">删除</button>
+      </div>
     </div>
     <!-- 右侧题目网格 -->
     <div class="flex-grow bg-white border border-gray-200 rounded-xl p-4 overflow-y-auto">
@@ -678,22 +686,22 @@ tailwind.config = {
       </div>
     </div>
     <div class="flex-grow overflow-y-auto pr-2 flex flex-col gap-4">
-      <div v-for="paper in filteredHistoricalPapers" :key="paper.id"
+      <div v-for="paper in historicalPapers" :key="paper.id"
         class="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-teal-accent transition-colors">
         <div>
           <div class="flex items-center gap-2 mb-2">
-            <span class="bg-teal-accent/10 text-teal-accent px-2 py-0.5 rounded font-bold" style="font-size:10px;">{{ paper.region }}</span>
+            <span class="bg-teal-accent/10 text-teal-accent px-2 py-0.5 rounded font-bold" style="font-size:10px;">{{ paper.source }}</span>
             <span class="bg-gray-100 text-text-secondary px-2 py-0.5 rounded font-bold" style="font-size:10px;">{{ paper.year }}年</span>
             <span class="text-text-secondary text-xs" style="font-family:JetBrains Mono;">题量: {{ paper.question_count }}题</span>
           </div>
-          <h3 class="font-headline font-bold text-text-primary mb-1" style="font-size:20px;">{{ paper.name }}</h3>
+          <h3 class="font-headline font-bold text-text-primary mb-1" style="font-size:20px;">{{ paper.source }} {{ paper.year }}</h3>
           <div class="flex gap-4 text-text-secondary text-sm">
-            <span>{{ paper.subject }}</span>
-            <span>总分: {{ paper.total_score }}分</span>
+            <span>难度: {{ paper.difficulty || '--' }}</span>
+            <span>区分度: {{ paper.discrimination || '--' }}</span>
           </div>
         </div>
         <button class="border border-teal-accent text-teal-accent rounded-xl px-4 py-2 font-semibold text-xs hover:bg-teal-accent/10"
-          @click="showToast('真题详情功能即将上线', 'info')">查看试卷</button>
+          @click="viewHistoricalDetail(paper)">查看试卷</button>
       </div>
     </div>
   </div>
@@ -709,29 +717,37 @@ tailwind.config = {
       </button>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div v-for="exam in exams" :key="exam._id"
+      <div v-for="exam in exams" :key="exam.id"
         class="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col"
-        :class="{ 'opacity-80': exam.status === 'draft' }">
+        :class="{ 'opacity-80': exam.status === 'draft' || exam.status === 'cancelled' }">
         <div class="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
-          <span class="text-xs font-semibold text-text-secondary">{{ exam.date || '--' }}</span>
+          <span class="text-xs font-semibold text-text-secondary">{{ exam.total_score }}分 / {{ exam.duration_minutes }}分钟</span>
           <span class="px-2 py-0.5 rounded font-bold" style="font-size:10px; border:1px solid;"
             :class="examStatusClass(exam.status)">{{ examStatusLabel(exam.status) }}</span>
         </div>
         <div class="p-4 flex-grow flex flex-col justify-between">
           <div>
             <h3 class="font-semibold text-sm text-text-primary mb-2">{{ exam.name }}</h3>
-            <p class="text-xs text-text-secondary">{{ exam.info }}</p>
+            <p class="text-xs text-text-secondary">{{ exam.classes ? exam.classes.map(c => c.name).join(', ') : '全部班级' }}</p>
           </div>
-          <div class="mt-4 flex justify-end gap-2">
+          <div class="mt-4 flex justify-end gap-2 flex-wrap">
             <button class="text-teal-accent font-semibold text-xs hover:underline flex items-center gap-1"
               @click="openEditExamModal(exam)">
               <span class="material-symbols-outlined" style="font-size:14px;">edit</span>编辑
             </button>
-            <button class="text-teal-accent font-semibold text-xs hover:underline flex items-center gap-1"
+            <button v-if="exam.status === 'draft'" class="text-teal-accent font-semibold text-xs hover:underline flex items-center gap-1"
               @click="confirmPublishExam(exam)">
               <span class="material-symbols-outlined" style="font-size:14px;">publish</span>发布
             </button>
-            <button class="text-text-secondary font-semibold text-xs hover:text-error-red flex items-center gap-1"
+            <button v-if="exam.status === 'active'" class="text-amber-600 font-semibold text-xs hover:underline flex items-center gap-1"
+              @click="confirmEndExam(exam)">
+              <span class="material-symbols-outlined" style="font-size:14px;">stop_circle</span>结束
+            </button>
+            <button v-if="exam.status === 'draft' || exam.status === 'active'" class="text-text-secondary font-semibold text-xs hover:text-error-red flex items-center gap-1"
+              @click="confirmCancelExam(exam)">
+              <span class="material-symbols-outlined" style="font-size:14px;">cancel</span>取消
+            </button>
+            <button v-if="exam.status !== 'active'" class="text-text-secondary font-semibold text-xs hover:text-error-red flex items-center gap-1"
               @click="confirmDeleteExam(exam)">
               <span class="material-symbols-outlined" style="font-size:14px;">delete</span>删除
             </button>
@@ -821,7 +837,13 @@ const app = createApp({
       { id: 'tab-4', label: '考试列表' },
     ];
     const activeTab = ref('tab-1');
-    const switchTab = (id) => { activeTab.value = id; };
+    const switchTab = (id) => {
+      activeTab.value = id;
+      // 按需加载 Tab 数据
+      if (id === 'tab-2') loadQuestionSets();
+      if (id === 'tab-3') { loadHistoricalFilters(); loadHistoricalList(); }
+      if (id === 'tab-4') loadExams();
+    };
 
     // 子模式
     const modes = [
@@ -920,53 +942,105 @@ const app = createApp({
     const cardsLoading = ref(false);
 
     // ── Tab 2 - 题库管理 ──
-    const bankFolders = [
-      '全部题目', '化学基本概念', '元素及其化合物',
-      '化学反应原理', '有机化学基础', '化学实验与探究',
-      '化学计算', '月考', '期中期末考试',
-    ];
-    const selectedBankFolder = ref('全部题目');
+    const bankFolders = ref([]);  // 从 API 加载的 QuestionSet 列表
+    const selectedBankFolder = ref(null);  // 选中的 QuestionSet 对象
     const bankQuestions = ref([]);
     const bankLoading = ref(false);
     const allBankSelected = ref(false);
     const bankSelectedCount = computed(() => bankQuestions.value.filter(q => q._selected).length);
 
+    // 加载文件夹列表
+    const loadQuestionSets = async () => {
+      try {
+        const data = await apiFetch('/api/question-sets/');
+        if (data && data.data) {
+          bankFolders.value = data.data;
+          if (data.data.length > 0 && !selectedBankFolder.value) {
+            selectedBankFolder.value = data.data[0];
+            loadBankQuestions();
+          }
+        }
+      } catch(e) {
+        showToast('加载题库文件夹失败', 'error');
+      }
+    };
+
     // ── Tab 3 - 历史真题 ──
     const historicalSearch = ref('');
     const historicalRegion = ref('');
     const historicalYear = ref('');
-    const historicalRegions = ['全国卷', '北京卷', '上海卷', '江苏卷', '湖南卷'];
-    const historicalYears = [2024, 2023, 2022, 2021, 2020, 2019, 2018];
+    const historicalRegions = ref([]);  // 从 API 加载
+    const historicalYears = ref([]);    // 从 API 加载
+    const historicalPapers = ref([]);
+    const historicalLoading = ref(false);
+    const historicalDetail = ref(null);  // 真题详情
 
-    const historicalPapers = ref([
-      { id: 'p1', region: '全国卷', year: 2023, name: '2023年普通高等学校招生全国统一考试（新课标卷）', subject: '理科综合', total_score: 300, question_count: 38 },
-      { id: 'p2', region: '北京卷', year: 2024, name: '2024年北京市普通高中学业水平等级性考试', subject: '化学', total_score: 100, question_count: 20 },
-      { id: 'p3', region: '江苏卷', year: 2022, name: '2022年江苏省普通高中学业水平选择性考试', subject: '化学', total_score: 120, question_count: 23 },
-      { id: 'p4', region: '湖南卷', year: 2024, name: '2024年湖南省普通高中学业水平选择性考试', subject: '化学', total_score: 100, question_count: 22 },
-      { id: 'p5', region: '全国卷', year: 2022, name: '2022年普通高等学校招生全国统一考试（甲卷）', subject: '理科综合', total_score: 300, question_count: 35 },
-    ]);
+    const loadHistoricalList = async () => {
+      historicalLoading.value = true;
+      try {
+        let url = '/api/historical-exams/?limit=50';
+        if (historicalRegion.value) url += `&source=${encodeURIComponent(historicalRegion.value)}`;
+        if (historicalYear.value) url += `&year=${historicalYear.value}`;
+        if (historicalSearch.value) url += `&keyword=${encodeURIComponent(historicalSearch.value)}`;
 
-    const filteredHistoricalPapers = computed(() => {
-      let papers = historicalPapers.value;
-      if (historicalSearch.value) {
-        const kw = historicalSearch.value.toLowerCase();
-        papers = papers.filter(p => p.name.toLowerCase().includes(kw));
+        const data = await apiFetch(url);
+        if (data && data.data) {
+          historicalPapers.value = data.data;
+        }
+      } catch(e) {
+        showToast('加载历史真题失败', 'error');
+      } finally {
+        historicalLoading.value = false;
       }
-      if (historicalRegion.value) papers = papers.filter(p => p.region === historicalRegion.value);
-      if (historicalYear.value) papers = papers.filter(p => p.year === Number(historicalYear.value));
-      return papers;
-    });
+    };
+
+    const loadHistoricalFilters = async () => {
+      try {
+        const [sourcesData, yearsData] = await Promise.all([
+          apiFetch('/api/historical-exams/sources'),
+          apiFetch('/api/historical-exams/years'),
+        ]);
+        if (sourcesData && sourcesData.data) historicalRegions.value = sourcesData.data;
+        if (yearsData && yearsData.data) historicalYears.value = yearsData.data;
+      } catch(e) { /* 静默失败 */ }
+    };
+
+    const viewHistoricalDetail = async (paper) => {
+      try {
+        const data = await apiFetch(`/api/historical-exams/${paper.id}`);
+        if (data && data.data) {
+          historicalDetail.value = data.data;
+          openModal('真题详情', `<div class="max-h-96 overflow-y-auto text-sm"><h3 class="font-bold mb-2">${escapeHtml(data.data.source)} ${data.data.year}</h3><p class="text-text-secondary mb-2">共 ${data.data.question_count} 道题目</p></div>`, '关闭', null);
+        }
+      } catch(e) {
+        showToast('加载真题详情失败', 'error');
+      }
+    };
 
     // ── Tab 4 - 考试列表 ──
-    const exams = ref([
-      { _id: 'e1', name: '高三第一次模拟考试（理科）', date: '2023-10-15', status: 'active', info: '参与班级: 高三1班, 高三2班' },
-      { _id: 'e2', name: '高二下学期期末考试', date: '2023-09-01', status: 'ended', info: '阅卷进度: 100%' },
-      { _id: 'e3', name: '月度摸底测验（理化生）', date: '--', status: 'draft', info: '缺题数: 5题' },
-    ]);
+    const exams = ref([]);
+    const examsLoading = ref(false);
+    const examFilterStatus = ref('');  // 状态筛选
 
-    const examStatusLabel = (s) => ({ draft: '草稿', active: '进行中', ended: '已结束' }[s] || s);
+    const loadExams = async () => {
+      examsLoading.value = true;
+      try {
+        let url = '/api/exams/?limit=50';
+        if (examFilterStatus.value) url += `&status=${examFilterStatus.value}`;
+        const data = await apiFetch(url);
+        if (data && data.data) {
+          exams.value = data.data;
+        }
+      } catch(e) {
+        showToast('加载考试列表失败', 'error');
+      } finally {
+        examsLoading.value = false;
+      }
+    };
+
+    const examStatusLabel = (s) => ({ draft: '草稿', active: '进行中', ended: '已结束', cancelled: '已取消' }[s] || s);
     const examStatusClass = (s) => ({
-      draft: 'exam-tag-draft', active: 'exam-tag-active', ended: 'exam-tag-ended'
+      draft: 'exam-tag-draft', active: 'exam-tag-active', ended: 'exam-tag-ended', cancelled: 'exam-tag-ended'
     }[s] || '');
 
     // ── Modal 系统 ──
@@ -1233,7 +1307,12 @@ const app = createApp({
     const loadBankQuestions = async () => {
       bankLoading.value = true;
       try {
-        const data = await apiFetch('/api/questions/?limit=50');
+        const folder = selectedBankFolder.value;
+        if (!folder || !folder.id) {
+          bankQuestions.value = [];
+          return;
+        }
+        const data = await apiFetch(`/api/question-sets/${folder.id}/questions?limit=50`);
         if (data && data.data) {
           bankQuestions.value = data.data.map(q => ({ ...q, _selected: false }));
         }
@@ -1262,15 +1341,25 @@ const app = createApp({
     const batchMove = () => {
       const count = bankSelectedCount.value;
       if (!count) { showToast('请先选择题目', 'error'); return; }
-      const options = bankFolders.map(b => `<option value="${b}">${b}</option>`).join('');
+      const options = bankFolders.value
+        .filter(b => b.id !== (selectedBankFolder.value?.id))
+        .map(b => `<option value="${b.id}">${b.name}</option>`).join('');
       openModal('移动到目标题库',
         `<div class="flex flex-col gap-2"><label class="text-xs font-semibold text-text-secondary">目标题库</label><select id="move-target" class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none">${options}</select></div>`,
-        '移动', () => {
-          const target = document.getElementById('move-target')?.value;
-          if (target) {
-            bankQuestions.value.forEach(q => { if (q._selected) q._selected = false; });
-            updateBankSelection();
-            showToast(`已将 ${count} 道题目移动到 ${target}`, 'success');
+        '移动', async () => {
+          const targetId = document.getElementById('move-target')?.value;
+          if (targetId) {
+            try {
+              const ids = bankQuestions.value.filter(q => q._selected).map(q => q.id);
+              await apiFetch('/api/question-sets/batch-move', {
+                method: 'POST',
+                body: JSON.stringify({ question_ids: ids, target_question_set_id: targetId }),
+              });
+              showToast(`已将 ${count} 道题目移动到目标题库`, 'success');
+              loadBankQuestions();
+            } catch(e) {
+              showToast('移动失败', 'error');
+            }
           }
         }
       );
@@ -1279,29 +1368,111 @@ const app = createApp({
     const batchDeleteBank = () => {
       const count = bankSelectedCount.value;
       if (!count) { showToast('请先选择题目', 'error'); return; }
-      openModal('删除所选题目', `<p class="text-sm text-text-secondary">确认删除选中的 ${count} 道题目？</p>`, '确认删除', () => {
-        bankQuestions.value = bankQuestions.value.filter(q => !q._selected);
-        updateBankSelection();
-        showToast(`已删除 ${count} 道题目`, 'success');
+      openModal('删除所选题目', `<p class="text-sm text-text-secondary">确认删除选中的 ${count} 道题目？删除后不可恢复。</p>`, '确认删除', async () => {
+        try {
+          const ids = bankQuestions.value.filter(q => q._selected).map(q => q.id);
+          await apiFetch('/api/questions/batch-delete', {
+            method: 'POST',
+            body: JSON.stringify({ question_ids: ids }),
+          });
+          bankQuestions.value = bankQuestions.value.filter(q => !q._selected);
+          updateBankSelection();
+          showToast(`已删除 ${count} 道题目`, 'success');
+        } catch(e) {
+          showToast('删除失败', 'error');
+        }
+      });
+    };
+
+    // 文件夹操作
+    const openNewFolderModal = () => {
+      openModal('新建文件夹',
+        `<div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">文件夹名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="new-folder-name" placeholder="输入文件夹名称"></div>`,
+        '创建', async () => {
+          const name = document.getElementById('new-folder-name')?.value?.trim();
+          if (!name) { showToast('请输入文件夹名称', 'error'); return; }
+          try {
+            await apiFetch('/api/question-sets/', {
+              method: 'POST',
+              body: JSON.stringify({ name }),
+            });
+            showToast('文件夹创建成功', 'success');
+            loadQuestionSets();
+          } catch(e) {
+            showToast('创建失败', 'error');
+          }
+        }
+      );
+    };
+
+    const renameFolder = () => {
+      const folder = selectedBankFolder.value;
+      if (!folder || !folder.id) return;
+      openModal('重命名文件夹',
+        `<div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">新名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="rename-folder-input" value="${escapeHtml(folder.name)}"></div>`,
+        '保存', async () => {
+          const name = document.getElementById('rename-folder-input')?.value?.trim();
+          if (!name) { showToast('请输入名称', 'error'); return; }
+          try {
+            await apiFetch(`/api/question-sets/${folder.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({ name }),
+            });
+            showToast('重命名成功', 'success');
+            loadQuestionSets();
+          } catch(e) {
+            showToast('重命名失败', 'error');
+          }
+        }
+      );
+    };
+
+    const deleteFolder = () => {
+      const folder = selectedBankFolder.value;
+      if (!folder || !folder.id) return;
+      openModal('删除文件夹', `<p class="text-sm text-text-secondary">确认删除"${escapeHtml(folder.name)}"文件夹？文件夹内的题目不会被删除。</p>`, '确认删除', async () => {
+        try {
+          await apiFetch(`/api/question-sets/${folder.id}`, { method: 'DELETE' });
+          showToast('文件夹已删除', 'success');
+          selectedBankFolder.value = null;
+          bankQuestions.value = [];
+          loadQuestionSets();
+        } catch(e) {
+          showToast('删除失败，可能该文件夹被进行中的考试关联', 'error');
+        }
       });
     };
 
     // ── 考试操作 ──
     const openCreateExamModal = () => {
+      const qsetOptions = bankFolders.value.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
       openModal('创建考试',
         `<div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-name" value="高三第三次模拟考试"></div>
-          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试日期</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" type="date" id="exam-date" value="2026-09-10"></div>
-          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">参与班级</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-class" value="高三1班, 高三2班"></div>
-          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">状态</label><select class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-status"><option value="draft">草稿</option><option value="active">进行中</option></select></div>
+          <div class="flex flex-col gap-1 col-span-2"><label class="text-xs font-semibold text-text-secondary">考试名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-name" value="模拟考试"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">班级</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-class" placeholder="高三1班, 高三2班"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">总分</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" type="number" id="exam-score" value="100"></div>
+          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">时长(分钟)</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" type="number" id="exam-duration" value="60"></div>
+          <div class="flex flex-col gap-1 col-span-2"><label class="text-xs font-semibold text-text-secondary">关联题库</label><select class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="exam-qsets" multiple>${qsetOptions}</select></div>
         </div>`,
-        '创建考试', () => {
+        '创建考试', async () => {
           const name = document.getElementById('exam-name')?.value || '未命名考试';
-          const date = document.getElementById('exam-date')?.value || '--';
-          const cls = document.getElementById('exam-class')?.value || '';
-          const status = document.getElementById('exam-status')?.value || 'draft';
-          exams.value.unshift({ _id: 'e' + Date.now(), name, date, status, info: cls ? `参与班级: ${cls}` : '' });
-          showToast('考试创建成功', 'success');
+          const clsStr = document.getElementById('exam-class')?.value || '';
+          const classes = clsStr.split(/[,，]/).filter(Boolean).map((n, i) => ({ id: `cls-${i}`, name: n.trim() }));
+          const total_score = parseInt(document.getElementById('exam-score')?.value) || 100;
+          const duration_minutes = parseInt(document.getElementById('exam-duration')?.value) || 60;
+          const qsetSelect = document.getElementById('exam-qsets');
+          const qsetIds = qsetSelect ? Array.from(qsetSelect.selectedOptions).map(o => o.value) : [];
+
+          try {
+            await apiFetch('/api/exams/', {
+              method: 'POST',
+              body: JSON.stringify({ name, classes, total_score, duration_minutes, question_set_ids: qsetIds }),
+            });
+            showToast('考试创建成功', 'success');
+            loadExams();
+          } catch(e) {
+            showToast('创建失败', 'error');
+          }
         }
       );
     };
@@ -1310,28 +1481,68 @@ const app = createApp({
       openModal('编辑考试',
         `<div class="flex flex-col gap-3">
           <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试名称</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" id="edit-exam-name" value="${escapeHtml(exam.name)}"></div>
-          <div class="flex flex-col gap-1"><label class="text-xs font-semibold text-text-secondary">考试日期</label><input class="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" type="date" id="edit-exam-date" value="${exam.date}"></div>
         </div>`,
-        '保存', () => {
-          exam.name = document.getElementById('edit-exam-name')?.value || exam.name;
-          exam.date = document.getElementById('edit-exam-date')?.value || exam.date;
-          showToast('考试信息已保存', 'success');
+        '保存', async () => {
+          const name = document.getElementById('edit-exam-name')?.value || exam.name;
+          try {
+            await apiFetch(`/api/exams/${exam.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({ name }),
+            });
+            showToast('考试信息已保存', 'success');
+            loadExams();
+          } catch(e) {
+            showToast('保存失败', 'error');
+          }
         }
       );
     };
 
     const confirmPublishExam = (exam) => {
-      openModal('发布考试', '<p class="text-sm text-text-secondary">发布后学生可立即参加考试，确认发布？</p>', '确认发布', () => {
-        exam.status = 'active';
-        showToast('考试已发布', 'success');
+      openModal('发布考试', '<p class="text-sm text-text-secondary">发布后学生可立即参加考试，确认发布？</p>', '确认发布', async () => {
+        try {
+          await apiFetch(`/api/exams/${exam.id}/publish`, { method: 'POST' });
+          showToast('考试已发布', 'success');
+          loadExams();
+        } catch(e) {
+          showToast('发布失败，请确认已关联题库文件夹', 'error');
+        }
+      });
+    };
+
+    const confirmEndExam = (exam) => {
+      openModal('结束考试', '<p class="text-sm text-text-secondary">确认结束该考试？结束后学生将无法继续作答。</p>', '确认结束', async () => {
+        try {
+          await apiFetch(`/api/exams/${exam.id}/end`, { method: 'POST' });
+          showToast('考试已结束', 'success');
+          loadExams();
+        } catch(e) {
+          showToast('操作失败', 'error');
+        }
+      });
+    };
+
+    const confirmCancelExam = (exam) => {
+      openModal('取消考试', '<p class="text-sm text-text-secondary">确认取消该考试？取消后学生无法参加。</p>', '确认取消', async () => {
+        try {
+          await apiFetch(`/api/exams/${exam.id}/cancel`, { method: 'POST' });
+          showToast('考试已取消', 'success');
+          loadExams();
+        } catch(e) {
+          showToast('操作失败', 'error');
+        }
       });
     };
 
     const confirmDeleteExam = (exam) => {
-      openModal('删除考试', '<p class="text-sm text-text-secondary">删除后不可恢复，确认删除该考试？</p>', '确认删除', () => {
-        const idx = exams.value.indexOf(exam);
-        if (idx >= 0) exams.value.splice(idx, 1);
-        showToast('考试已删除', 'success');
+      openModal('删除考试', '<p class="text-sm text-text-secondary">删除后不可恢复，确认删除该考试？</p>', '确认删除', async () => {
+        try {
+          await apiFetch(`/api/exams/${exam.id}`, { method: 'DELETE' });
+          showToast('考试已删除', 'success');
+          loadExams();
+        } catch(e) {
+          showToast('删除失败，进行中的考试无法删除', 'error');
+        }
       });
     };
 
@@ -1356,12 +1567,15 @@ const app = createApp({
       questionCards, cardsLoading,
       bankFolders, selectedBankFolder, bankQuestions, bankLoading,
       allBankSelected, bankSelectedCount,
-      loadBankQuestions, getBankIcon, getBankCardTitle,
+      loadQuestionSets, loadBankQuestions, getBankIcon, getBankCardTitle,
       toggleAllBank, updateBankSelection, batchMove, batchDeleteBank,
+      openNewFolderModal, renameFolder, deleteFolder,
       historicalSearch, historicalRegion, historicalYear,
-      historicalRegions, historicalYears, historicalPapers, filteredHistoricalPapers,
-      exams, examStatusLabel, examStatusClass,
-      openCreateExamModal, openEditExamModal, confirmPublishExam, confirmDeleteExam,
+      historicalRegions, historicalYears, historicalPapers, historicalLoading,
+      loadHistoricalList, loadHistoricalFilters, viewHistoricalDetail,
+      exams, examsLoading, examFilterStatus, examStatusLabel, examStatusClass,
+      loadExams, openCreateExamModal, openEditExamModal,
+      confirmPublishExam, confirmEndExam, confirmCancelExam, confirmDeleteExam,
       modalActive, modalTitle, modalBody, modalConfirmLabel,
       openModal, closeModal, confirmModal,
       toasts, showToast,

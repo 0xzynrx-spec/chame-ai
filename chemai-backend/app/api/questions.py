@@ -17,6 +17,24 @@ from app.models import (
     QuestionType,
 )
 from app.services.audit_engine import get_audit_engine
+
+
+def _sync_question_vector(question_id: str, question) -> None:
+    """同步题目向量到 ChromaDB（惰性导入，失败不阻塞）"""
+    try:
+        from app.services.vector_search import add_question_vector, build_question_text
+        add_question_vector(question_id, build_question_text(question))
+    except ImportError:
+        pass
+
+
+def _delete_question_vector_safe(question_id: str) -> None:
+    """从 ChromaDB 删除题目向量（惰性导入，失败不阻塞）"""
+    try:
+        from app.services.vector_search import delete_question_vector
+        delete_question_vector(question_id)
+    except ImportError:
+        pass
 from app.utils.deps import get_current_user
 from app.utils.permissions import require_role
 from app.utils.schemas import PaginationParams, UserContext
@@ -50,6 +68,11 @@ class ImportRequest(BaseModel):
     answer_i18n: dict = Field(..., description="多语言答案")
     analysis_i18n: dict | None = Field(None, description="多语言解析")
     knowledge_points: list[str] = Field(default_factory=list, description="知识点标签")
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除题目请求"""
+    question_ids: list[str] = Field(..., min_length=1, max_length=500, description="题目 ID 列表")
 
 
 # ── 知识点搜索（必须在 {question_id} 路由之前注册） ──
@@ -136,7 +159,7 @@ def list_questions(
     return {
         "success": True,
         "message": "查询成功",
-        "data": [q.__dict__ for q in questions],
+        "data": [_question_to_dict(q) for q in questions],
         "meta": {
             "total": total,
             "limit": pagination.limit,
@@ -220,6 +243,10 @@ def update_question(
         db.commit()
 
     db.refresh(question)
+
+    # 向量同步（失败不阻塞更新）
+    _sync_question_vector(question.id, question)
+
     return {
         "success": True,
         "message": "编辑成功",
@@ -250,10 +277,59 @@ def delete_question(
             },
         )
 
+    qid = question.id
     db.delete(question)
     db.commit()
 
+    # 向量清理（失败不阻塞）
+    _delete_question_vector_safe(qid)
+
     return {"success": True, "message": "删除成功", "data": None}
+
+
+@router.post("/batch-delete")
+def batch_delete_questions(
+    body: BatchDeleteRequest,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """批量删除题目（硬删除）
+
+    删除 Question 记录及其 QuestionSetItem 关联。
+    权限：teacher / admin
+    """
+    require_role(current_user, ["teacher", "admin"])
+
+    questions = (
+        db.query(Question)
+        .filter(Question.id.in_(body.question_ids))
+        .all()
+    )
+
+    if len(questions) != len(body.question_ids):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "detail": "部分题目不存在或不属于您的学校",
+                "error_code": "VALIDATION_ERROR",
+                "suggestion": "请检查所选题目",
+            },
+        )
+
+    for q in questions:
+        db.delete(q)
+
+    db.commit()
+
+    # 批量向量清理
+    for q in questions:
+        _delete_question_vector_safe(q.id)
+
+    return {
+        "success": True,
+        "message": f"成功删除 {len(questions)} 道题目",
+        "data": {"deleted": len(questions)},
+    }
 
 
 @router.post("/{question_id}/audit")
@@ -372,6 +448,9 @@ def import_question(
 
     db.commit()
     db.refresh(question)
+
+    # 向量同步（失败不阻塞导入）
+    _sync_question_vector(question.id, question)
 
     return {
         "success": True,

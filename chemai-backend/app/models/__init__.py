@@ -20,6 +20,7 @@ from app.models.question import (
 from app.models.question_set import QuestionSet, QuestionSetItem
 from app.models.knowledge_point import KnowledgePoint
 from app.models.historical_exam import HistoricalExam
+from app.models.exam import Exam, ExamQuestionSet, ExamStatus
 
 __all__ = [
     "Base",
@@ -42,4 +43,7 @@ __all__ = [
     "QuestionSetItem",
     "KnowledgePoint",
     "HistoricalExam",
+    "Exam",
+    "ExamQuestionSet",
+    "ExamStatus",
 ]

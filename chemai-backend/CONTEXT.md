@@ -54,10 +54,71 @@
 
 | 术语 | 英文 | 定义 |
 |------|------|------|
-| 题目类型 | Question Type | 题目的作答形式。平台支持：**single_choice**（单选）、**multi_choice**（多选）、**true_false**（判断）、**fill_blank**（填空）、**short_answer**（简答）、**essay**（论述）、**calculation**（计算）、**experiment**（实验）。 |
-| 难度 | Difficulty | 题目难度等级，取值范围 1–5（1=极易，5=极难），由教师标注或系统根据答题数据自动校准。 |
-| 四维审核 | Four-Dimension Review | 题目入库前的质量审查机制，从四个维度评估：**科学性**（化学原理是否正确）、**难度匹配**（标注难度与实际是否一致）、**知识点覆盖**（是否清晰关联到目标知识点）、**区分度**（能否有效区分不同水平学生）。 |
-| 考试状态 | Exam State | 一份考试在其生命周期中所处的阶段。状态流转路径：**draft**（草稿）→ **published**（已发布）→ **in_progress**（进行中）→ **grading**（判卷中）→ **completed**（已完成）→ **archived**（已归档）。此外还可从 draft 直接进入 **cancelled**（已取消）。 |
+| 题目类型 | Question Type | 题目的作答形式，当前支持五种：**choice**（选择题）、**fill**（填空题）、**calc**（计算题）、**experiment**（实验题）、**inference**（推断题）。 |
+| 难度 | Difficulty | 题目难度等级，枚举值：**easy**（容易）、**medium**（中等）、**hard**（困难）、**competition**（竞赛级）。由教师标注，后续可由系统根据答题数据自动校准。 |
+| 题目来源 | Question Source | 题目的创建渠道：**ai_generated**（AI 生成）、**manual**（手动录入）、**daily_practice**（日常练习）、**ocr_import**（OCR 导入）。 |
+| 审核状态 | Audit Status | 题目在审核流水线中所处阶段：**pending**（待审核）→ **auditing**（审核中）→ **passed**（通过）/ **warning**（警告）/ **blocked**（阻断）。blocked 题目不可出现在学生端，教师可发起 re-audit 重新进入 auditing。 |
+
+### 四维审核（Four-Dimension Audit）
+
+题目入库前的化学方程式安全审核机制，四个维度的简称和顺序固定为 **D1-D4**：
+
+| 维度 | 英文 | 作用 | 阻断级别 |
+|------|------|------|---------|
+| D1 配平 | Balance | 检查方程式左右两侧每种元素的原子数是否相等，离子方程式同时检查电荷守恒 | **硬阻断**：系数配平零错误是不可协商的安全红线 |
+| D2 条件 | Conditions | 检查反应条件是否标注（点燃/加热/催化剂/电解等），14 类条件关键词 + 7 种反应类型规则 | 缺失必要条件时阻断 |
+| D3 产物稳定性 | Product Stability | 检查产物的化学稳定性（H₂CO₃ 自动分解、浓硫酸还原产物、沉淀标识等） | 不稳定产物注入警告 |
+| D4 结构 | Structure | 检查化学式书写规范（元素符号大小写、下标位置、括号匹配等） | 结构不规范注入建议 |
+
+审核报告 `AuditReport` 包含四个维度的独立结果和一个 `overall_status`：**passed**（全部通过）/ **blocked**（至少一个维度阻断）/ **warning**（有警告但可通过）。
+
+### 考试状态机（Exam State Machine）
+
+一份考试在其生命周期中所处的阶段。当前 Phase 实现简化版状态机：
+
+```
+                    ┌──────────────┐
+                    │    draft     │  草稿：教师正在编辑，学生不可见
+                    │   (黄底棕字)  │
+                    └──────┬───────┘
+                           │ publish           cancel
+                    ┌──────▼───────┐           │
+                    │    active    │  进行中    │
+                    │   (蓝底蓝字)  │           │
+                    └──────┬───────┘           │
+                           │ end               │
+                    ┌──────▼───────┐           │
+                    │    ended     │  已结束    │
+                    │   (灰底灰字)  │           │
+                    └──────────────┘           │
+                                               ▼
+                                       ┌──────────────┐
+                                       │  cancelled   │  已取消
+                                       │  (灰底灰字)   │
+                                       └──────────────┘
+```
+
+后续 Phase 将在 `ended` 之后扩展 **grading → completed → archived**。任何非 draft 状态的考试不可直接删除——需先 cancel 或 archive。删除操作不可逆，触发确认弹窗。
+
+### 题库管理（Question Bank）
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| 题库文件夹 | Question Set | 题目的组织容器。一个文件夹属于一位教师和一所学校，包含若干题目（通过 `QuestionSetItem` 多对多关联，含 `sort_order` 排序字段）。删除文件夹不删除题目。 |
+| 题库分类 | Bank Category | 预设的化学模块分类标签，用于文件夹的默认分组：全部题目 / 化学基本概念 / 元素及其化合物 / 化学反应原理 / 有机化学基础 / 化学实验与探究 / 化学计算 / 月考 / 期中期末考试。 |
+| 批量操作 | Batch Operation | 对题库中选中题目的一次性操作：**批量移动**（变更所属文件夹）和**批量删除**。操作前弹出确认弹窗，完成后 Toast 通知。 |
+| 历史真题 | Historical Exam | 历年真实考试试卷的元数据（来源地区、年份、题号、知识点、难度统计区分度）。题目可通过 `historical_exam_id` 关联到真题来源，支持变体生成。 |
+| 变体生成 | Variant Generation | 以某道真题为蓝本，LLM 生成同知识点、同难度、不同表述的变体题。前端通过 `variant_source` + `variant_qid` 参数触发。 |
+
+### 检索方案概要（Search & Discovery）
+
+| 维度 | 方式 | 说明 |
+|------|------|------|
+| 知识点搜索 | `GET /api/questions/kps?q=` | 前缀匹配 + 模糊搜索，300ms debounce，返回 20 条供自动补全 |
+| 题目列表筛选 | `GET /api/questions?type=&difficulty=&audit_status=&knowledge_point=` | 多条件 AND 组合，学校隔离（教师仅见本校题目），按 `created_at DESC` 排序 |
+| 分页 | `limit`（默认 20，最大 100）+ `offset` | 标准偏移分页，返回 `meta: {total, limit, offset}` |
+| 真题筛选 | Tab 3 前端侧 | 按地区（下拉）+ 年份（下拉）+ 关键词（自由文本）组合筛选，当前为静态 mock，后续对接 `GET /api/historical-exams` |
+| 考试列表 | Tab 4 前端侧 | 按状态标签（草稿/进行中/已结束）视觉区分，操作按钮（编辑/发布/删除）按状态动态可用 |
 
 ---
 

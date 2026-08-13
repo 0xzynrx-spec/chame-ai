@@ -2,7 +2,7 @@
 
 提供 ChemAI 平台的用户认证与授权体系，包括 JWT token 签发与验证、四角色 RBAC 权限矩阵、FastAPI 中间件和依赖注入机制，确保每个 API 请求经过身份验证和权限检查。
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: JWT Token 签发
 系统 SHALL 在用户登录成功后签发 JWT access token（24 小时有效）和 refresh token（7 天有效），使用 HMAC-SHA256 算法签名，密钥从环境变量读取。

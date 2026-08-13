@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Database (运行时生成)
+*.db
+*.sqlite3
+
+# ChromaDB 向量数据（运行时生成）
+chemai-backend/data/chromadb/
+
+# gstack / graphify 生成物
+graphify-out/
+.gstack/

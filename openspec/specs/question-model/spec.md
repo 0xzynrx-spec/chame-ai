@@ -2,7 +2,7 @@
 
 定义 ChemAI 平台的题目数据持久化模型，支持多语言内容、图片引用、知识点标签和审核状态追踪，为出题工作台和题库管理提供数据基础。
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: 题目实体（Question）
 系统 SHALL 提供 Question ORM 实体存储完整的化学题目信息。每条题目记录 SHALL 包含：题目类型（单选/填空/计算/实验/推断）、难度等级（简单/中等/困难/竞赛）、多语言正文（content_i18n JSON）、多语言选项（options_i18n JSON）、多语言答案（answer_i18n JSON）、多语言解析（analysis_i18n JSON）、图片引用列表（images JSON array）、知识点标签列表（knowledge_points JSON array）、题目来源（AI生成/手动录入/OCR导入）、审核状态（pending/auditing/passed/warning/blocked）、审核报告快照（audit_report JSON）、创建者教师 ID。

@@ -2,7 +2,7 @@
 
 定义 ChemAI 平台的核心数据持久化层，包括组织层级、用户身份、角色绑定等 9 个 SQLAlchemy ORM 实体及其关系映射，为所有业务逻辑提供统一的数据访问基础。
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: 组织层级模型
 系统 SHALL 提供 School → Grade → Class 三级组织层级模型，支持学校隔离多租户数据查询。

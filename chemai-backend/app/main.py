@@ -32,18 +32,56 @@ def create_app() -> FastAPI:
     app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
 
     # ── 注册路由 ────────────────────────────────
-    from app.api import auth_router, audit_router, questions_router, users_router
+    from app.api import auth_router, audit_router, exams_router, historical_exams_router, question_sets_router, questions_router, search_router, users_router
 
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(audit_router)
     app.include_router(questions_router)
+    app.include_router(question_sets_router)
+    app.include_router(exams_router)
+    app.include_router(historical_exams_router)
+    app.include_router(search_router)
+
+    # ── 启动事件 ────────────────────────────────
+    @app.on_event("startup")
+    async def startup_check():
+        """应用启动时检查 ChromaDB 可用性并执行种子数据"""
+        # 种子数据：为现有教师创建默认题库文件夹
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            from app.services.seed_data import run_seed_if_needed
+            created = run_seed_if_needed(db)
+            if created > 0:
+                print(f"[OK] 已为教师创建 {created} 个默认题库文件夹")
+        finally:
+            db.close()
+
+        # ChromaDB 可用性检查
+        try:
+            from app.services.vector_search import check_chromadb_health
+            if check_chromadb_health():
+                print("[OK] ChromaDB 向量检索服务可用")
+            else:
+                print("[WARN] ChromaDB 向量检索服务不可用，语义搜索功能将不可用")
+        except ImportError:
+            print("[WARN] ChromaDB 未安装或版本不兼容，语义搜索功能将不可用")
 
     # ── 健康检查 ────────────────────────────────
     @app.get("/health")
     async def health_check():
         """健康检查端点"""
-        return {"status": "ok", "service": "ChemAI Backend"}
+        try:
+            from app.services.vector_search import check_chromadb_health
+            chromadb_status = "available" if check_chromadb_health() else "unavailable"
+        except ImportError:
+            chromadb_status = "unavailable"
+        return {
+            "status": "ok",
+            "service": "ChemAI Backend",
+            "chromadb": chromadb_status,
+        }
 
     return app
 
