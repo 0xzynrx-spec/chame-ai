@@ -1,3 +1,5 @@
+import pytest
+pytestmark = pytest.mark.l2
 """ChemAI Backend — 向量检索测试
 
 使用 mock ChromaDB 进行向量检索端点集成测试。

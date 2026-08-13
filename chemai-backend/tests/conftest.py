@@ -13,6 +13,13 @@ from app.utils.jwt import create_access_token
 from app.utils.password import hash_password
 
 
+def pytest_configure(config):
+    """注册评测分层 marker（L1 单元 / L2 集成 / L3 Golden）"""
+    config.addinivalue_line("markers", "l1: 单元测试（单函数/单类）")
+    config.addinivalue_line("markers", "l2: 集成测试（API 端到端 / DB 交互）")
+    config.addinivalue_line("markers", "l3: Golden 测试（化学典型题对照集）")
+
+
 @pytest.fixture(scope="function")
 def engine():
     """每个测试函数使用独立的临时 SQLite 文件数据库"""

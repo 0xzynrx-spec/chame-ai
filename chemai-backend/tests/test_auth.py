@@ -7,6 +7,7 @@ import jwt
 
 from app.config import settings
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
+pytestmark = pytest.mark.l2
 
 
 class TestJWTToken:

@@ -1,3 +1,5 @@
+import pytest
+pytestmark = pytest.mark.l2
 """ChemAI Backend — 历史真题 API 集成测试
 
 测试 HistoricalExam 列表、详情、地区/年份筛选。

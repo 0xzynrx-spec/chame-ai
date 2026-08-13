@@ -7,9 +7,13 @@
 用法:
     python run_evals.py --tier all --compare baseline.json
 
+层级（--tier）:
+    all  全量（默认）
+    l1   单元测试（pytestmark = pytest.mark.l1）
+    l2   集成测试（API 端到端 / DB 交互）
+    l3   Golden 测试（化学典型题对照集）
+
 说明:
-    - `--tier all` 为当前唯一完整支持的层级（跑整个 pytest 套件）。
-      测试套件尚未按 L1/L2/L3 打标，l1/l2/l3 暂按全量运行并给出提示。
     - 首次运行（基线文件不存在）只生成基线，不判劣化。
 """
 
@@ -32,10 +36,10 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_BASELINE = "baseline.json"
 
 
-def run_pytest() -> dict:
-    """运行全量 pytest，返回通过/失败/错误计数与失败测试名"""
+def run_pytest(extra: list[str] | None = None) -> dict:
+    """运行 pytest，返回通过/失败/错误计数与失败测试名"""
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--tb=no"],
+        [sys.executable, "-m", "pytest", "-q", "--tb=no", *(extra or [])],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -65,15 +69,13 @@ def run_pytest() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="全量评测 + 基线对比")
-    parser.add_argument("--tier", default="all", help="评测层级（当前仅 all 全量）")
+    parser.add_argument("--tier", default="all", choices=["all", "l1", "l2", "l3"],
+                        help="评测层级：all 全量 / l1 单元 / l2 集成 / l3 Golden")
     parser.add_argument("--compare", default=DEFAULT_BASELINE, help="基线文件路径")
     args = parser.parse_args()
 
-    if args.tier != "all":
-        print(f"[WARN] tier={args.tier} 尚未细分，按 all 全量运行（测试套件未按层级打标）")
-
-    result = run_pytest()
-    result["tier"] = "all"
+    result = run_pytest(extra=[] if args.tier == "all" else ["-m", args.tier])
+    result["tier"] = args.tier
     result["timestamp"] = datetime.now(timezone.utc).isoformat()
 
     baseline_path = Path(args.compare)
@@ -89,6 +91,14 @@ def main() -> int:
         return 0
 
     baseline = json.loads(baseline_path.read_text())
+
+    # 基线层级与本次不一致时（如 l3 的 4 passed 对比 all 的 317）比较无意义，跳过劣化判定
+    if baseline.get("tier") != args.tier:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(
+            f"\n[skip] 基线层级({baseline.get('tier')})与本次({args.tier})不一致，跳过劣化判定。"
+        )
+        return 0
 
     prev_failed = set(baseline.get("failed_tests", []))
     new_failed = set(result["failed_tests"])

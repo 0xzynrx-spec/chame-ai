@@ -18,6 +18,7 @@ from app.services.diagnosis_engine.aggregate import aggregate_barrier_profile
 from app.services.diagnosis_engine.models import DiagnosisResult
 from app.services.diagnosis_engine.rules import infer_barrier_by_question_type
 from app.services.llm_service import LLMService, LLMServiceError
+pytestmark = pytest.mark.l1
 
 
 # ── 工厂函数 ────────────────────────────────────────────
@@ -285,6 +286,7 @@ GOLDEN_CASES = [
 ]
 
 
+@pytest.mark.l3
 class TestGoldenRules:
     """L3 黄金测试：规则兜底对化学典型题的障碍标注应保持稳定（回归基线）"""
 

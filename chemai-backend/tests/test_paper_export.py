@@ -1,3 +1,5 @@
+import pytest
+pytestmark = pytest.mark.l2
 """ChemAI Backend — 试卷导出测试
 
 测试 HTML 试卷导出、答案包含/排除、内容验证。

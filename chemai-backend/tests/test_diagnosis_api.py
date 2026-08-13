@@ -15,6 +15,8 @@ from app.models import (
 )
 from app.models.diagnosis import BarrierType
 from app.services.diagnosis_engine.models import DiagnosisResult
+import pytest
+pytestmark = pytest.mark.l2
 
 
 # ── Stub 引擎（替代真实 LLM） ───────────────────────────

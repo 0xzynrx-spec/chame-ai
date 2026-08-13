@@ -4,6 +4,7 @@
 """
 
 import pytest
+pytestmark = pytest.mark.l2
 
 
 class TestExamCRUD:

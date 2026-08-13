@@ -15,6 +15,7 @@ from app.models import (
     TeacherClassSubject,
 )
 from app.utils.password import verify_password
+pytestmark = pytest.mark.l1
 
 
 class TestSchoolGradeClass:

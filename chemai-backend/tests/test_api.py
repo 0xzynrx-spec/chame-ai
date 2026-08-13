@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Account
 from app.utils.password import hash_password
+pytestmark = pytest.mark.l2
 
 
 class TestLoginEndpoint:

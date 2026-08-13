@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models import KnowledgePoint, Question, QuestionType, Difficulty, QuestionSource, AuditStatus
+pytestmark = pytest.mark.l2
 
 
 # ══════════════════════════════════════════════════════════

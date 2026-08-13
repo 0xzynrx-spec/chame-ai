@@ -12,6 +12,7 @@ from app.services.audit_engine.balance import check_balance, check_charge_balanc
 from app.services.audit_engine.conditions import check_conditions
 from app.services.audit_engine.product_stability import check_product_stability
 from app.services.audit_engine.structure import check_structure
+pytestmark = pytest.mark.l1
 
 
 # ── 测试夹具 ────────────────────────────────────────────

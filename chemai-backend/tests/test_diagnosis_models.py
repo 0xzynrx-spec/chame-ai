@@ -14,6 +14,8 @@ from app.models import (
     StudentAnswer,
     Teacher,
 )
+import pytest
+pytestmark = pytest.mark.l1
 
 
 def _make_exam(db: Session, teacher: Teacher, school_id: str) -> Exam:

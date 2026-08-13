@@ -1,6 +1,8 @@
 """测试：四角色 RBAC 权限矩阵"""
 
 from app.utils.permissions import check_permission
+import pytest
+pytestmark = pytest.mark.l1
 
 
 class TestAdminPermissions:

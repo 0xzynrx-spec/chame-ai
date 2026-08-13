@@ -1,3 +1,5 @@
+import pytest
+pytestmark = pytest.mark.l2
 """ChemAI Backend — 题库文件夹 API 集成测试
 
 测试 QuestionSet CRUD、文件夹内题目管理、批量操作。
