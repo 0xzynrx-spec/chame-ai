@@ -38,6 +38,10 @@ class Settings(BaseSettings):
         "/openapi.json",
     ]
 
+    # LLM（通义千问 DashScope）
+    dashscope_api_key: str = ""
+    dashscope_model: str = "qwen-plus"
+
     model_config = {"env_prefix": "CHEMAI_", "env_file": ".env", "extra": "ignore"}
 
 
