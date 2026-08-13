@@ -32,7 +32,7 @@ def create_app() -> FastAPI:
     app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
 
     # ── 注册路由 ────────────────────────────────
-    from app.api import auth_router, audit_router, exams_router, historical_exams_router, question_sets_router, questions_router, search_router, users_router
+    from app.api import auth_router, audit_router, diagnosis_router, exams_router, historical_exams_router, question_sets_router, questions_router, search_router, users_router
 
     app.include_router(auth_router)
     app.include_router(users_router)
@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(exams_router)
     app.include_router(historical_exams_router)
     app.include_router(search_router)
+    app.include_router(diagnosis_router)
 
     # ── 启动事件 ────────────────────────────────
     @app.on_event("startup")
@@ -55,6 +56,8 @@ def create_app() -> FastAPI:
             created = run_seed_if_needed(db)
             if created > 0:
                 print(f"[OK] 已为教师创建 {created} 个默认题库文件夹")
+        except Exception as e:  # 数据库尚未迁移（如空库）时跳过种子，避免阻塞启动
+            print(f"[WARN] 种子数据跳过: {e}")
         finally:
             db.close()
 
