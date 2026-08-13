@@ -21,6 +21,13 @@ from app.models.question_set import QuestionSet, QuestionSetItem
 from app.models.knowledge_point import KnowledgePoint
 from app.models.historical_exam import HistoricalExam
 from app.models.exam import Exam, ExamQuestionSet, ExamStatus
+from app.models.diagnosis import (
+    BarrierType,
+    ExamRecord,
+    StudentAnswer,
+    BarrierConfig,
+    DiagnosisOverride,
+)
 
 __all__ = [
     "Base",
@@ -46,4 +53,9 @@ __all__ = [
     "Exam",
     "ExamQuestionSet",
     "ExamStatus",
+    "BarrierType",
+    "ExamRecord",
+    "StudentAnswer",
+    "BarrierConfig",
+    "DiagnosisOverride",
 ]
