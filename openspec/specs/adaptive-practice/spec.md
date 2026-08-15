@@ -1,9 +1,7 @@
 ## Purpose
 
 消费诊断引擎输出的障碍画像与作答历史，为每个学生计算最近发展区（ZPD）难度、提取薄弱知识点，组装个性化出题参数生成练习，并追踪练习效果。v1 仅支持选择题型。
-
 ## Requirements
-
 ### Requirement: ZPD 难度计算
 系统 SHALL 基于学生最近 30 条**练习**作答记录（`ExamRecord.type=practice`，按 `created_at` 降序）计算正确率并映射难度档位：正确率 < 40% 返回 `easy`；40%-70%（含）返回 `medium`；> 70% 返回 `hard`。无历史作答时冷启动返回 `medium`。
 
@@ -97,3 +95,19 @@
 #### Scenario: 跨校访问
 - **WHEN** 教师尝试访问非本校学生的练习数据
 - **THEN** 系统返回 404
+
+### Requirement: 练习题目查询
+系统 SHALL 提供练习题目查询端点：返回指定练习（`practice_id`）关联的题目列表，按生成顺序排列，每项含题目 ID、题干、选项、知识点与难度，不含答案与解析；仅学生本人与任教教师可访问。
+
+#### Scenario: 查询题目
+- **WHEN** 学生调用 `GET /api/practice/{practice_id}/questions`
+- **THEN** 系统返回 `{practice_id, questions[]}`，每项含 `question_id`、`content`、`options`、`knowledge_points`、`difficulty`，不含 `answer`/`analysis`
+
+#### Scenario: 越权访问
+- **WHEN** 非本人学生访问他人练习的题目
+- **THEN** 系统返回 403
+
+#### Scenario: 不存在
+- **WHEN** 访问的 `practice_id` 不存在或非练习类型
+- **THEN** 系统返回 404
+
