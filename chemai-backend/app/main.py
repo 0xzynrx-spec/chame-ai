@@ -18,7 +18,14 @@ def create_app() -> FastAPI:
     )
 
     # ── 全局中间件 ──────────────────────────────
-    # 1. CORS 中间件（最外层，处理预检请求）
+    # Starlette 的 add_middleware 后添加者位于外层。CORS 必须处于最外层，
+    # 这样 JWT 认证中间件短路返回的 401 等错误响应也会带上跨域头，
+    # 否则浏览器会把跨域未授权请求误报为 CORS 失败（Failed to fetch）。
+    # 1. JWT 认证中间件（内层，负责鉴权）
+    from app.middleware.auth import JWTAuthMiddleware
+    app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
+
+    # 2. CORS 中间件（最外层，处理预检并为所有响应附加跨域头）
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -26,10 +33,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    # 2. JWT 认证中间件（CORS 处理后执行）
-    from app.middleware.auth import JWTAuthMiddleware
-    app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
 
     # ── 注册路由 ────────────────────────────────
     from app.api import (
