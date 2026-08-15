@@ -10,6 +10,8 @@ from app.api.exams import router as exams_router
 from app.api.historical_exams import router as historical_exams_router
 from app.api.search import router as search_router
 from app.api.diagnosis import router as diagnosis_router
+from app.api.practice import router as practice_router
+from app.api.review import router as review_router, wrong_router
 
 __all__ = [
     "auth_router",
@@ -21,4 +23,7 @@ __all__ = [
     "historical_exams_router",
     "search_router",
     "diagnosis_router",
+    "practice_router",
+    "review_router",
+    "wrong_router",
 ]

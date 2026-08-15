@@ -23,11 +23,13 @@ from app.models.historical_exam import HistoricalExam
 from app.models.exam import Exam, ExamQuestionSet, ExamStatus
 from app.models.diagnosis import (
     BarrierType,
+    RecordType,
     ExamRecord,
     StudentAnswer,
     BarrierConfig,
     DiagnosisOverride,
 )
+from app.models.review import ReviewTask, ReviewStatus
 
 __all__ = [
     "Base",
@@ -54,8 +56,11 @@ __all__ = [
     "ExamQuestionSet",
     "ExamStatus",
     "BarrierType",
+    "RecordType",
     "ExamRecord",
     "StudentAnswer",
     "BarrierConfig",
     "DiagnosisOverride",
+    "ReviewTask",
+    "ReviewStatus",
 ]

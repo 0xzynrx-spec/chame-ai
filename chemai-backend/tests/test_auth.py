@@ -47,7 +47,10 @@ class TestJWTToken:
     def test_invalid_token(self):
         """被篡改的 token 应拒绝"""
         token = create_access_token("u1", "teacher")
-        tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+        # 篡改 token 中段而非末字符：签名 base64url 末字符仅承载 4 个数据位 +
+        # 2 个被忽略的填充位，改末字符有 ~1/16 概率签名不变而不抛异常（flaky）。
+        mid = len(token) // 2
+        tampered = token[:mid] + ("A" if token[mid] != "A" else "B") + token[mid + 1 :]
         with pytest.raises(jwt.InvalidTokenError):
             decode_token(tampered)
 
