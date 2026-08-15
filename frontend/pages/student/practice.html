@@ -188,6 +188,7 @@ createApp({
       this.loading = true; this.error = '';
       try {
         const sid = ChemAPI.studentId();
+        if (!sid) { this.error = '请先登录后再使用'; return; }
         const res = await ChemAPI.get(`/api/practice/student/${sid}/tasks`);
         this.tasks = res.data.tasks || [];
         this.pendingCount = res.data.pending_count;

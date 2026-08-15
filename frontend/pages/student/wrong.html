@@ -222,6 +222,7 @@ createApp({
       this.loading = true; this.error = '';
       try {
         const sid = ChemAPI.studentId();
+        if (!sid) { this.error = '请先登录后再使用'; return; }
         const [wrongRes, dueRes] = await Promise.all([
           ChemAPI.get(`/api/practice/wrong/list?student_id=${sid}`),
           ChemAPI.get(`/api/review/student/${sid}/due`),

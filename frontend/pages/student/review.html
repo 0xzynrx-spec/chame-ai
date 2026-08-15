@@ -163,6 +163,7 @@ createApp({
       this.loading = true; this.error = '';
       try {
         const sid = ChemAPI.studentId();
+        if (!sid) { this.error = '请先登录后再使用'; return; }
         const res = await ChemAPI.get(`/api/review/student/${sid}/due`);
         this.tasks = res.data.tasks || [];
         this.dueCount = res.data.due_count || 0;
