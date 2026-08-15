@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>练习 — ChemAI 智辅化学</title>
+
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      "oxford-blue": "#002147", "teal-accent": "#0d7377", "teal-hover": "#0a5c5f",
+      "warm-paper": "#faf8f5", "warm-bg": "#f5f0e8", "text-primary": "#1a1a2e",
+      "text-secondary": "#6b7280", "error-red": "#b43c28", "pass-green": "#2c6e49",
+    },
+    fontFamily: { "headline": ["Cormorant Garamond", "serif"], "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"], "chem": ["JetBrains Mono", "IBM Plex Mono", "monospace"] },
+  } },
+}
+</script>
+
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
+.app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; max-width: 430px; height: 56px; display: flex; background: #ffffff; border-top: 1px solid #eeeeee; z-index: 20; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #8b8b9c; font-size: 10px; text-decoration: none; }
+.nav-item .material-symbols-outlined { font-size: 22px; }
+.nav-item.active { color: #002147; }
+.nav-item.active span:last-child { font-weight: 600; }
+main { padding-bottom: 72px; }
+.option { transition: all .15s; }
+.option.selected { border-color: #0d7377; background: #e0f2f1; }
+</style>
+</head>
+<body class="bg-warm-bg text-text-primary">
+<div class="app" id="app">
+  <header class="h-14 flex items-center justify-between px-4 bg-oxford-blue text-white sticky top-0 z-10">
+    <div class="w-10"></div>
+    <h1 class="text-base font-semibold">练习</h1>
+    <div class="w-10"></div>
+  </header>
+
+  <main ref="main">
+    <!-- 加载/错误 -->
+    <div v-if="loading" class="p-8 text-center text-sm text-text-secondary">加载中…</div>
+    <div v-else-if="error" class="p-8 text-center text-sm text-error-red">{{ error }}</div>
+
+    <!-- 列表视图 -->
+    <section v-else-if="view === 'list'">
+      <div class="flex gap-2 p-4">
+        <div class="flex-1 bg-white rounded-lg p-4 text-center border border-black/5">
+          <div class="text-xs text-text-secondary">待完成</div>
+          <div class="text-2xl font-bold">{{ pendingCount }}</div>
+        </div>
+        <div class="flex-1 bg-white rounded-lg p-4 text-center border border-black/5">
+          <div class="text-xs text-text-secondary">已完成</div>
+          <div class="text-2xl font-bold text-pass-green">{{ completedCount }}</div>
+        </div>
+      </div>
+
+      <div v-if="tasks.length === 0" class="flex flex-col items-center py-24 text-center">
+        <span class="material-symbols-outlined text-5xl text-teal-accent">edit_note</span>
+        <p class="mt-4 text-sm text-text-secondary">暂无练习任务</p>
+        <p class="mt-1 text-xs text-text-secondary">老师布置的个性化练习会出现在这里</p>
+      </div>
+
+      <div class="flex flex-col gap-3 px-4">
+        <div v-for="t in tasks" :key="t.practice_id"
+             class="bg-white rounded-lg p-4 border border-black/5 shadow-sm cursor-pointer"
+             @click="startPractice(t)">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-semibold">{{ kpLabel(t.knowledge_points) }}</span>
+            <span :class="t.status === 'completed' ? 'text-pass-green' : 'text-teal-accent'"
+                  class="text-xs font-medium">{{ t.status === 'completed' ? '已完成' : '待完成' }}</span>
+          </div>
+          <div class="mt-2 text-xs text-text-secondary">共 {{ t.question_count }} 题</div>
+          <div v-if="t.taken_at" class="mt-1 text-xs text-text-secondary">练习时间 {{ fmtTime(t.taken_at) }}</div>
+          <div class="mt-3 flex items-center justify-end text-xs text-oxford-blue">
+            开始练习 <span class="material-symbols-outlined text-sm">arrow_forward</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 作答视图 -->
+    <section v-else-if="view === 'solving'" class="px-4 py-4">
+      <div class="flex items-center justify-between text-xs text-text-secondary mb-3">
+        <span>第 {{ answeredCount + 1 }} / {{ current.questions.length }} 题</span>
+        <span>已作答 {{ answeredCount }}</span>
+      </div>
+
+      <div v-for="(q, idx) in current.questions" :key="q.question_id" class="mb-4">
+        <div class="bg-white rounded-lg p-4 border border-black/5 shadow-sm">
+          <div class="text-xs text-text-secondary mb-2">第 {{ idx + 1 }} 题 · {{ q.difficulty }}</div>
+          <div class="text-sm leading-relaxed" v-html="q.content"></div>
+          <div class="mt-3 flex flex-col gap-2">
+            <div v-for="opt in q.options" :key="opt"
+                 class="option border border-gray-200 rounded-md px-3 py-2 text-sm cursor-pointer"
+                 :class="{ selected: current.answers[q.question_id] === opt.trim().charAt(0) }"
+                 @click="selectAnswer(q.question_id, opt)">
+              <span v-html="opt"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="w-full h-11 rounded-lg text-white font-medium disabled:opacity-50"
+              :class="canSubmit ? 'bg-teal-accent' : 'bg-gray-300'"
+              :disabled="!canSubmit || submitting"
+              @click="submit">
+        {{ submitting ? '提交中…' : '提交练习' }}
+      </button>
+    </section>
+
+    <!-- 结果视图 -->
+    <section v-else-if="result" class="px-4 py-6 text-center">
+      <div class="bg-white rounded-lg p-6 border border-black/5 shadow-sm">
+        <div class="text-4xl font-bold text-oxford-blue">{{ result.score }}<span class="text-lg text-text-secondary"> / {{ result.total }}</span></div>
+        <div class="mt-2 text-sm text-text-secondary">正确率 {{ Math.round(result.accuracy * 100) }}%</div>
+      </div>
+
+      <div class="mt-4 flex flex-col gap-3 text-left">
+        <div v-for="(r, i) in result.questions" :key="r.question_id"
+             class="bg-white rounded-lg p-4 border border-black/5 shadow-sm">
+          <div class="flex items-center gap-2 text-sm">
+            <span class="material-symbols-outlined text-lg"
+                  :class="r.is_correct ? 'text-pass-green' : 'text-error-red'">{{ r.is_correct ? 'check_circle' : 'cancel' }}</span>
+            <span class="font-medium">第 {{ i + 1 }} 题</span>
+            <span v-if="!r.is_correct" class="text-xs text-text-secondary">正确答案：{{ r.correct_answer }}</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="mt-5 w-full h-11 rounded-lg bg-oxford-blue text-white font-medium" @click="backToList">
+        返回列表
+      </button>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a class="nav-item" href="index.html"><span class="material-symbols-outlined">smart_toy</span><span>AI助教</span></a>
+    <a class="nav-item active" href="practice.html"><span class="material-symbols-outlined">edit_note</span><span>练习</span></a>
+    <a class="nav-item" href="wrong.html"><span class="material-symbols-outlined">fact_check</span><span>错题</span></a>
+    <a class="nav-item" href="#"><span class="material-symbols-outlined">person</span><span>我的</span></a>
+  </nav>
+</div>
+
+<script src="common.js"></script>
+<script>
+const { createApp } = Vue;
+createApp({
+  data() {
+    return {
+      view: 'list', loading: false, error: '', submitting: false,
+      tasks: [], pendingCount: 0, completedCount: 0,
+      current: { practice_id: '', questions: [], answers: {} },
+      result: null,
+    };
+  },
+  computed: {
+    answeredCount() { return Object.keys(this.current.answers).length; },
+    canSubmit() { return this.current.questions.length > 0 && this.answeredCount === this.current.questions.length; },
+  },
+  async mounted() { await this.loadTasks(); },
+  methods: {
+    kpLabel(kps) { return (kps && kps.length) ? kps.join(' · ') : '个性化练习'; },
+    fmtTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      const p = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    },
+    async loadTasks() {
+      this.loading = true; this.error = '';
+      try {
+        const sid = ChemAPI.studentId();
+        const res = await ChemAPI.get(`/api/practice/student/${sid}/tasks`);
+        this.tasks = res.data.tasks || [];
+        this.pendingCount = res.data.pending_count;
+        this.completedCount = res.data.completed_count;
+      } catch (e) { this.error = e.message; }
+      finally { this.loading = false; }
+    },
+    async startPractice(task) {
+      this.loading = true; this.error = '';
+      try {
+        const res = await ChemAPI.get(`/api/practice/${task.practice_id}/questions`);
+        this.current = { practice_id: task.practice_id, questions: res.data.questions || [], answers: {} };
+        this.view = 'solving';
+        await this.$nextTick(); this.renderMath();
+      } catch (e) { this.error = e.message; }
+      finally { this.loading = false; }
+    },
+    selectAnswer(qid, opt) {
+      this.current.answers[qid] = opt.trim().charAt(0);
+    },
+    async submit() {
+      this.submitting = true; this.error = '';
+      try {
+        const answers = this.current.questions.map(q => ({
+          question_id: q.question_id,
+          answer: this.current.answers[q.question_id] || '',
+        }));
+        const res = await ChemAPI.post('/api/practice/submit', {
+          practice_id: this.current.practice_id, answers,
+        });
+        this.result = res.data;
+        this.view = 'result';
+        await this.$nextTick(); this.renderMath();
+        await this.loadTasks();
+      } catch (e) { this.error = e.message; }
+      finally { this.submitting = false; }
+    },
+    backToList() { this.view = 'list'; this.result = null; },
+    renderMath() {
+      if (window.renderMathInElement && this.$refs.main) {
+        renderMathInElement(this.$refs.main, {
+          delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+          throwOnError: false,
+        });
+      }
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
