@@ -9,6 +9,8 @@
   'use strict';
 
   var TOKEN_KEY = 'chemai_token';
+  // 后端 API 基地址（默认与 exam-v2 一致；异源部署时页面可先设 window.ChemAPI_BASE 覆盖）
+  var API_BASE = window.ChemAPI_BASE || 'http://localhost:8000';
 
   function getToken() {
     return localStorage.getItem(TOKEN_KEY) || '';
@@ -55,7 +57,7 @@
       { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
       options.headers || {}
     );
-    return fetch(path, options).then(function (res) {
+    return fetch(API_BASE + path, options).then(function (res) {
       return res.json().catch(function () { return null; }).then(function (body) {
         if (!res.ok) {
           var d = body && body.detail;
