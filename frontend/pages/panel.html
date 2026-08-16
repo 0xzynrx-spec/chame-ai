@@ -155,7 +155,8 @@ let demoIndex = 0; // 演示数据按班级切换复用同一份
 // ── API 封装 ──
 async function apiFetch(url, options = {}) {
   const token = localStorage.getItem('chemai_token');
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const headers = { ...(options.headers || {}) };
+  if (options.body) headers['Content-Type'] = 'application/json';
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(API_BASE + url, { ...options, headers });
   if (res.status === 401) {
@@ -247,7 +248,7 @@ async function loadPanel() {
     renderPanel(res.data);
   } catch (e) {
     if (e.message === '401') return;
-    renderError($('#kpi-row'), '面板数据加载失败');
+    $('#kpi-row').innerHTML = renderErrorBox('面板数据加载失败');
   }
 }
 
@@ -259,7 +260,7 @@ async function loadTrend() {
     renderLineChart(res.data.score_trend);
   } catch (e) {
     if (e.message === '401') return;
-    renderError($('#line-chart'), '趋势数据加载失败');
+    $('#line-chart').innerHTML = renderErrorBox('趋势数据加载失败');
   }
 }
 
@@ -408,11 +409,13 @@ function renderDrawer(d) {
       <span class="text-xs text-text-secondary">${h.total_answers} 题</span>
     </div>`).join('') || '<span class="text-xs text-text-secondary">暂无作答记录</span>';
 
+  const dominant = d.dominant_barrier ? BARRIER_LABELS[d.dominant_barrier] : '—';
   $('#drawer-title').textContent = d.name;
   $('#drawer-body').innerHTML = `
     <p class="text-sm text-text-secondary mb-2">${d.class_name}</p>
     <h4 class="font-semibold text-sm mb-2">障碍分布</h4>
-    <div class="space-y-1 mb-5">${dist}</div>
+    <div class="space-y-1 mb-2">${dist}</div>
+    <p class="text-sm text-text-secondary mb-5">主导障碍：<span class="font-semibold text-text-primary">${dominant}</span></p>
     <h4 class="font-semibold text-sm mb-2">薄弱知识点</h4>
     <div class="flex flex-wrap gap-1 mb-5">${weak}</div>
     <h4 class="font-semibold text-sm mb-2">作答历史</h4>
@@ -431,7 +434,6 @@ function renderErrorBox(msg) {
   return `<div class="text-center py-6"><p class="text-sm text-error-red mb-3">${msg}</p>
     <button onclick="loadData()" class="text-sm text-teal-accent hover:text-teal-hover border border-teal-accent rounded px-3 py-1">重试</button></div>`;
 }
-function renderError(el, msg) { el.innerHTML = renderErrorBox(msg); }
 function renderEmpty() {
   $('#kpi-row').innerHTML = emptyState('暂无班级数据');
   $('#bar-chart').innerHTML = '';

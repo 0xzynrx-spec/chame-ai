@@ -28,6 +28,7 @@ def list_teaching_classes(
     require_role(current_user, ["teacher", "admin"])
 
     if current_user.role == "admin":
+        # admin 无任课关联：返回本校全部班级，subject 取班级学科
         classes = (
             db.query(Class)
             .join(Grade, Class.grade_id == Grade.id)
@@ -35,19 +36,24 @@ def list_teaching_classes(
             .order_by(Class.name)
             .all()
         )
+        data = [
+            {"class_id": c.id, "class_name": c.name, "subject": c.subject}
+            for c in classes
+        ]
     else:
-        classes = (
-            db.query(Class)
-            .join(TeacherClassSubject, TeacherClassSubject.class_id == Class.id)
+        # teacher：按任课关系返回，subject 取任教学科（TeacherClassSubject.subject）
+        rows = (
+            db.query(TeacherClassSubject, Class)
+            .join(Class, TeacherClassSubject.class_id == Class.id)
             .join(Grade, Class.grade_id == Grade.id)
             .filter(TeacherClassSubject.teacher_id == current_user.entity_id)
             .filter(Grade.school_id == current_user.school_id)
             .order_by(Class.name)
             .all()
         )
+        data = [
+            {"class_id": cls.id, "class_name": cls.name, "subject": tcs.subject}
+            for tcs, cls in rows
+        ]
 
-    data = [
-        {"class_id": c.id, "class_name": c.name, "subject": c.subject}
-        for c in classes
-    ]
     return {"success": True, "message": "查询成功", "data": data}

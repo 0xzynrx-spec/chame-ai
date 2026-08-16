@@ -17,8 +17,9 @@ class TestClassesAPI:
     def test_teacher_teaching_classes(
         self, client: TestClient, db_session, class_: Class, teacher, teacher_token: str
     ):
+        # 任教学科刻意区别于班级学科，验证 subject 取 TeacherClassSubject.subject 而非 Class.subject
         db_session.add(
-            TeacherClassSubject(teacher_id=teacher.id, class_id=class_.id, subject="化学")
+            TeacherClassSubject(teacher_id=teacher.id, class_id=class_.id, subject="化学（选修）")
         )
         db_session.commit()
 
@@ -28,7 +29,7 @@ class TestClassesAPI:
         assert len(data) == 1
         assert data[0]["class_id"] == class_.id
         assert data[0]["class_name"] == class_.name
-        assert data[0]["subject"] == "化学"
+        assert data[0]["subject"] == "化学（选修）"
 
     def test_teacher_no_classes(self, client: TestClient, teacher_token: str):
         resp = client.get("/api/classes", headers=_auth(teacher_token))

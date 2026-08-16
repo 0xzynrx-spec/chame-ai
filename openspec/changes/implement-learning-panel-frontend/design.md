@@ -24,7 +24,7 @@
 ### 1. 前端技术栈：Tailwind CDN + Vanilla JS（不引入 Vue、不引图表库）
 面板是只读数据仪表盘，交互只有「选班级 → 拉数据 → 渲染图表 → 点学生开抽屉」，无表单输入、无双向绑定，Vue 的响应式收益为零。图表（SVG/CSS 手绘）天然是命令式 DOM 操作，Vanilla JS 更直白。
 - 样式沿用设计系统 §36 的 Tailwind CDN + 与 `exam-v2.html` 相同的 tailwind.config（Oxford Blue / Teal / Warm Paper 配色、Cormorant Garamond 标题字体）。
-- 认证复用 `localStorage.chemai_token` + `Authorization: Bearer` 约定，不新造登录。
+- 认证复用 `localStorage.chemai_token` + `Authorization: Bearer` 约定；无 token 时展示一个最小登录门，仅调用现有 `POST /api/auth/login`（不新增认证端点或机制）。
 
 备选：Vue 3 CDN（对齐 `exam-v2.html`）——被否，理由如上（只读 + 图表命令式，Vue 是多余抽象）。
 
@@ -45,7 +45,7 @@
 - 前缀 `/api/classes`，`require_role(["teacher", "admin"])`。
 - teacher：`TeacherClassSubject` 按 `teacher_id == current_user.entity_id` 过滤，join `Class`，再按 `Grade.school_id == current_user.school_id` 兜底隔离。
 - admin：返回本校全部班级（admin 无任课关联，面板端点已允许 admin，选择器需给出全校班级）。
-- 返回 `data: [{class_id, class_name, subject}]`（`subject` 取 `Class.subject`；`class_id`/`class_name` 对齐面板端点的 `class_id`/`class_name` 字段）。
+- 返回 `data: [{class_id, class_name, subject}]`（teacher 的 `subject` 取 `TeacherClassSubject.subject`（任教学科），admin 取 `Class.subject`；`class_id`/`class_name` 对齐面板端点的 `class_id`/`class_name` 字段）。
 - 注册：`app/api/__init__.py` 导出 `classes_router`，`app/main.py` `include_router`。
 
 ### 5. 文件放置
