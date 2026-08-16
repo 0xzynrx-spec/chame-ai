@@ -14,6 +14,7 @@ from app.api.practice import router as practice_router
 from app.api.review import router as review_router, wrong_router
 from app.api.panel import router as panel_router
 from app.api.warning import router as warning_router
+from app.api.classes import router as classes_router
 
 __all__ = [
     "auth_router",
@@ -30,4 +31,5 @@ __all__ = [
     "wrong_router",
     "panel_router",
     "warning_router",
+    "classes_router",
 ]
