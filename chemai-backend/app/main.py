@@ -41,12 +41,14 @@ def create_app() -> FastAPI:
         diagnosis_router,
         exams_router,
         historical_exams_router,
+        panel_router,
         practice_router,
         question_sets_router,
         questions_router,
         review_router,
         search_router,
         users_router,
+        warning_router,
         wrong_router,
     )
 
@@ -62,6 +64,8 @@ def create_app() -> FastAPI:
     app.include_router(practice_router)
     app.include_router(review_router)
     app.include_router(wrong_router)
+    app.include_router(panel_router)
+    app.include_router(warning_router)
 
     # ── 启动事件 ────────────────────────────────
     @app.on_event("startup")
@@ -89,6 +93,25 @@ def create_app() -> FastAPI:
                 print("[WARN] ChromaDB 向量检索服务不可用，语义搜索功能将不可用")
         except ImportError:
             print("[WARN] ChromaDB 未安装或版本不兼容，语义搜索功能将不可用")
+
+    # ── 定时任务调度器 ────────────────────────────────
+    scheduler = None
+
+    @app.on_event("startup")
+    async def startup_scheduler():
+        """启动 BackgroundScheduler，注册学情预警检查任务"""
+        nonlocal scheduler
+        from app.services.scheduler import create_scheduler, start_scheduler
+        scheduler = create_scheduler()
+        start_scheduler(scheduler)
+
+    @app.on_event("shutdown")
+    async def shutdown_scheduler():
+        """应用关闭时优雅终止调度器"""
+        nonlocal scheduler
+        if scheduler is not None:
+            from app.services.scheduler import shutdown_scheduler
+            shutdown_scheduler(scheduler)
 
     # ── 健康检查 ────────────────────────────────
     @app.get("/health")

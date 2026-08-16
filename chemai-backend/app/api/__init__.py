@@ -12,6 +12,8 @@ from app.api.search import router as search_router
 from app.api.diagnosis import router as diagnosis_router
 from app.api.practice import router as practice_router
 from app.api.review import router as review_router, wrong_router
+from app.api.panel import router as panel_router
+from app.api.warning import router as warning_router
 
 __all__ = [
     "auth_router",
@@ -26,4 +28,6 @@ __all__ = [
     "practice_router",
     "review_router",
     "wrong_router",
+    "panel_router",
+    "warning_router",
 ]

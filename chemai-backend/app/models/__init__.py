@@ -30,6 +30,7 @@ from app.models.diagnosis import (
     DiagnosisOverride,
 )
 from app.models.review import ReviewTask, ReviewStatus
+from app.models.warning import WarningLog, WarningType, WarningLevel, WarningStatus
 
 __all__ = [
     "Base",
@@ -63,4 +64,8 @@ __all__ = [
     "DiagnosisOverride",
     "ReviewTask",
     "ReviewStatus",
+    "WarningLog",
+    "WarningType",
+    "WarningLevel",
+    "WarningStatus",
 ]
