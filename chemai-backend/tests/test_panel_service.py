@@ -5,7 +5,16 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models import Class, ExamRecord, Question, RecordType, Student, StudentAnswer, Teacher
+from app.models import (
+    BarrierType,
+    Class,
+    ExamRecord,
+    Question,
+    RecordType,
+    Student,
+    StudentAnswer,
+    Teacher,
+)
 from app.services.panel import (
     build_class_panel,
     build_class_trend,
@@ -163,6 +172,35 @@ class TestStudentDetail:
         assert acc[r2.id] == 1.0
         # 错误作答的知识点进入薄弱知识点
         assert "电解质" in detail["weak_knowledge_points"]
+
+    def test_history_barrier_distribution(
+        self, db_session: Session, class_: Class, teacher: Teacher, student: Student
+    ):
+        """history 逐记录 barrier_distribution：按错误作答的 barrier_type 占比"""
+        now = datetime.now(timezone.utc)
+        record = _make_exam_record(db_session, class_, now)
+        qa = _make_question(db_session, teacher, ["电解质"])
+        qb = _make_question(db_session, teacher, ["化学键"])
+        # 两条错题：一条 concept、一条 reading
+        db_session.add(
+            StudentAnswer(
+                exam_record_id=record.id, student_id=student.id, question_id=qa.id,
+                is_correct=False, barrier_type=BarrierType.CONCEPT,
+            )
+        )
+        db_session.add(
+            StudentAnswer(
+                exam_record_id=record.id, student_id=student.id, question_id=qb.id,
+                is_correct=False, barrier_type=BarrierType.READING,
+            )
+        )
+        # 一条对题，不参与障碍分布
+        _add_answer(db_session, student, record, qa, True)
+        db_session.commit()
+
+        detail = build_student_detail(db_session, class_, student)
+        h = detail["history"][0]
+        assert h["barrier_distribution"] == {"concept": 0.5, "reading": 0.5, "expression": 0.0}
 
 
 class TestAvgScoreTrend:

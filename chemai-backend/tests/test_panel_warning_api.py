@@ -170,10 +170,12 @@ class TestWarningAPI:
         resp = client.get(f"/api/warning/class/{class_.id}/summary", headers=_auth(teacher_token))
         assert resp.status_code == 200
         data = resp.json()["data"]
-        assert data["total"] == 2
-        assert data["by_type"]["no_login"] == 1
-        assert data["by_type"]["score_drop"] == 1
-        assert data["critical_count"] == 1
+        assert data["class_name"] == class_.name
+        summary = data["summary"]
+        assert summary["total"] == 2
+        assert summary["by_type"]["no_login"] == 1
+        assert summary["by_type"]["score_drop"] == 1
+        assert summary["critical_count"] == 1
 
 
 # ── 权限与学校隔离 ─────────────────────────────────────

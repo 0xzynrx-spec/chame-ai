@@ -8,21 +8,13 @@
     成绩趋势：ExamRecord.avg_score（type=exam）按时间序列，原值透传。
 """
 
-from datetime import datetime, timezone
-
 from sqlalchemy.orm import Session
 
 from app.models import ExamRecord, Question, RecordType, Student, StudentAnswer
+from app.utils.time import as_aware
 
 # 障碍类型标签（顺序固定：concept / reading / expression）
 BARRIER_KEYS = ("concept", "reading", "expression")
-
-
-def _as_aware(dt: datetime | None) -> datetime | None:
-    """SQLite 读出 naive 时间 → 补 UTC 时区"""
-    if dt is None:
-        return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _kp_tags(knowledge_points) -> list[str]:
@@ -91,7 +83,7 @@ def build_class_panel(db: Session, cls) -> dict:
     # class_overview
     recent = exam_records[0] if exam_records else None
     avg_score_trend = [
-        {"taken_at": _as_aware(r.taken_at).isoformat() if _as_aware(r.taken_at) else None,
+        {"taken_at": as_aware(r.taken_at).isoformat() if as_aware(r.taken_at) else None,
          "avg_score": r.avg_score}
         for r in reversed(exam_records[:10])  # 最近 10 次考试，按时间升序
     ]
@@ -101,7 +93,7 @@ def build_class_panel(db: Session, cls) -> dict:
         "total_students": len(students),
         "exam_count": len(exam_records),
         "recent_exam_avg": recent.avg_score if recent else None,
-        "recent_exam_date": _as_aware(recent.taken_at).isoformat() if recent and _as_aware(recent.taken_at) else None,
+        "recent_exam_date": as_aware(recent.taken_at).isoformat() if recent and as_aware(recent.taken_at) else None,
         "avg_score_trend": avg_score_trend,
     }
 
@@ -208,22 +200,37 @@ def build_student_detail(db: Session, cls, student: Student) -> dict:
         if key not in grouped:
             grouped[key] = {
                 "exam_record_id": key,
-                "taken_at": _as_aware(record.taken_at),
+                "taken_at": as_aware(record.taken_at),
                 "total": 0,
                 "correct": 0,
+                "barrier_counts": {"concept": 0, "reading": 0, "expression": 0},
             }
         grouped[key]["total"] += 1
         if answer.is_correct:
             grouped[key]["correct"] += 1
+        elif answer.barrier_type is not None:
+            grouped[key]["barrier_counts"][answer.barrier_type.value] += 1
 
     history = []
     for g in grouped.values():
+        counts = g["barrier_counts"]
+        barrier_total = sum(counts.values())
+        barrier_distribution = (
+            {
+                "concept": round(counts["concept"] / barrier_total, 4),
+                "reading": round(counts["reading"] / barrier_total, 4),
+                "expression": round(counts["expression"] / barrier_total, 4),
+            }
+            if barrier_total
+            else {"concept": 0.0, "reading": 0.0, "expression": 0.0}
+        )
         history.append(
             {
                 "exam_record_id": g["exam_record_id"],
                 "taken_at": g["taken_at"].isoformat() if g["taken_at"] else None,
                 "accuracy": round(g["correct"] / g["total"], 4) if g["total"] else 0.0,
                 "total_answers": g["total"],
+                "barrier_distribution": barrier_distribution,
             }
         )
 
@@ -266,7 +273,7 @@ def build_class_trend(db: Session, cls) -> dict:
         .all()
     )
     score_trend = [
-        {"taken_at": _as_aware(r.taken_at).isoformat() if _as_aware(r.taken_at) else None,
+        {"taken_at": as_aware(r.taken_at).isoformat() if as_aware(r.taken_at) else None,
          "avg_score": r.avg_score}
         for r in exam_records
     ]
@@ -287,9 +294,9 @@ def build_class_trend(db: Session, cls) -> dict:
     knowledge_trend = []
     for kp, slots in per_kp.items():
         series = [
-            {"taken_at": _as_aware(s["taken_at"]).isoformat() if _as_aware(s["taken_at"]) else None,
+            {"taken_at": as_aware(s["taken_at"]).isoformat() if as_aware(s["taken_at"]) else None,
              "error_rate": round(s["errors"] / s["total"], 4) if s["total"] else 0.0}
-            for s in sorted(slots.values(), key=lambda x: _as_aware(x["taken_at"]))
+            for s in sorted(slots.values(), key=lambda x: as_aware(x["taken_at"]))
         ]
         knowledge_trend.append({"knowledge_point": kp, "trend": series})
 

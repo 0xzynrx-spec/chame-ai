@@ -31,6 +31,7 @@ from app.services.review import (
 from app.utils.deps import get_current_user
 from app.utils.permissions import require_role
 from app.utils.schemas import UserContext
+from app.utils.time import as_aware
 
 router = APIRouter(prefix="/api/review", tags=["复习"])
 wrong_router = APIRouter(prefix="/api/practice", tags=["错题"])
@@ -72,13 +73,6 @@ class TrainingSubmitRequest(BaseModel):
 # ── 辅助函数 ────────────────────────────────────────────
 
 
-def _as_aware(dt: datetime | None) -> datetime | None:
-    """SQLite 读出 naive 时间 → 补 UTC 时区，保证与 now 可比"""
-    if dt is None:
-        return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-
-
 def _task_to_dict(task: ReviewTask) -> dict:
     """复习任务转字典（含题目正文）"""
     payload = {
@@ -88,7 +82,7 @@ def _task_to_dict(task: ReviewTask) -> dict:
         "status": task.status.value,
         "consecutive_correct": task.consecutive_correct,
         "consecutive_errors": task.consecutive_errors,
-        "next_review_at": _as_aware(task.next_review_at).isoformat() if task.next_review_at else None,
+        "next_review_at": as_aware(task.next_review_at).isoformat() if task.next_review_at else None,
     }
     if task.question:
         payload["question"] = question_to_dict(task.question)
@@ -134,9 +128,9 @@ def get_due_reviews(
         .filter(ReviewTask.student_id == student_id, ReviewTask.status == ReviewStatus.PENDING)
         .all()
     )
-    due = [t for t in tasks if t.next_review_at is not None and _as_aware(t.next_review_at) <= now]
-    due.sort(key=lambda t: _as_aware(t.next_review_at))
-    overdue_count = sum(1 for t in due if _as_aware(t.next_review_at) < now)
+    due = [t for t in tasks if t.next_review_at is not None and as_aware(t.next_review_at) <= now]
+    due.sort(key=lambda t: as_aware(t.next_review_at))
+    overdue_count = sum(1 for t in due if as_aware(t.next_review_at) < now)
 
     return {
         "success": True,
@@ -182,7 +176,7 @@ def submit_review(
             "task_id": task.id,
             "new_review_level": result["review_level"],
             "status": result["status"],
-            "next_review_at": _as_aware(result["next_review_at"]).isoformat()
+            "next_review_at": as_aware(result["next_review_at"]).isoformat()
             if result["next_review_at"] else None,
         },
     }
@@ -208,7 +202,7 @@ def list_wrong(
     items = list_wrong_questions(db, student_id)
     for item in items:
         if item.get("last_wrong_at") is not None:
-            item["last_wrong_at"] = _as_aware(item["last_wrong_at"]).isoformat()
+            item["last_wrong_at"] = as_aware(item["last_wrong_at"]).isoformat()
 
     return {"success": True, "message": "查询成功", "data": items}
 

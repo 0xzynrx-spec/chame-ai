@@ -4,11 +4,11 @@
 全部端点仅限 teacher / admin，且按学校隔离（Class → Grade → School 链）。
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.helpers import get_class_or_404, get_student_or_404, not_found
 from app.database import get_db
-from app.models import Class, Student
 from app.services.panel import (
     build_class_panel,
     build_class_trend,
@@ -20,39 +20,6 @@ from app.utils.permissions import require_role
 from app.utils.schemas import UserContext
 
 router = APIRouter(prefix="/api/panel", tags=["学情面板"])
-
-
-def _not_found(detail: str) -> HTTPException:
-    """统一 404 响应"""
-    return HTTPException(
-        status_code=404,
-        detail={
-            "detail": detail,
-            "error_code": "RESOURCE_NOT_FOUND",
-            "suggestion": "请检查资源 ID 是否正确",
-        },
-    )
-
-
-def _get_class_or_404(db: Session, class_id: str, school_id: str | None) -> Class:
-    """查询班级，不存在或跨校返回 404（Class → Grade → School 链）"""
-    cls = db.query(Class).filter(Class.id == class_id).first()
-    if not cls:
-        raise _not_found(f"班级 {class_id} 不存在")
-    if school_id and cls.grade and cls.grade.school_id != school_id:
-        raise _not_found(f"班级 {class_id} 不存在")
-    return cls
-
-
-def _get_student_or_404(db: Session, student_id: str, school_id: str | None) -> Student:
-    """查询学生，不存在或跨校返回 404（Student → Class → Grade → School 链）"""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise _not_found(f"学生 {student_id} 不存在")
-    cls = student.class_
-    if school_id and (not cls or not cls.grade or cls.grade.school_id != school_id):
-        raise _not_found(f"学生 {student_id} 不存在")
-    return student
 
 
 # ── 班级学情面板 ──────────────────────────────────────
@@ -69,7 +36,7 @@ def get_class_panel(
     权限：teacher / admin
     """
     require_role(current_user, ["teacher", "admin"])
-    cls = _get_class_or_404(db, class_id, current_user.school_id)
+    cls = get_class_or_404(db, class_id, current_user.school_id)
     return {"success": True, "message": "查询成功", "data": build_class_panel(db, cls)}
 
 
@@ -88,7 +55,7 @@ def get_knowledge_detail(
     权限：teacher / admin
     """
     require_role(current_user, ["teacher", "admin"])
-    cls = _get_class_or_404(db, class_id, current_user.school_id)
+    cls = get_class_or_404(db, class_id, current_user.school_id)
     return {
         "success": True,
         "message": "查询成功",
@@ -111,10 +78,10 @@ def get_student_detail(
     权限：teacher / admin
     """
     require_role(current_user, ["teacher", "admin"])
-    cls = _get_class_or_404(db, class_id, current_user.school_id)
-    student = _get_student_or_404(db, student_id, current_user.school_id)
+    cls = get_class_or_404(db, class_id, current_user.school_id)
+    student = get_student_or_404(db, student_id, current_user.school_id)
     if student.class_id != class_id:
-        raise _not_found(f"学生 {student_id} 不属于班级 {class_id}")
+        raise not_found(f"学生 {student_id} 不属于班级 {class_id}")
     return {"success": True, "message": "查询成功", "data": build_student_detail(db, cls, student)}
 
 
@@ -132,5 +99,5 @@ def get_class_trend(
     权限：teacher / admin
     """
     require_role(current_user, ["teacher", "admin"])
-    cls = _get_class_or_404(db, class_id, current_user.school_id)
+    cls = get_class_or_404(db, class_id, current_user.school_id)
     return {"success": True, "message": "查询成功", "data": build_class_trend(db, cls)}

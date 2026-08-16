@@ -6,10 +6,11 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api.helpers import get_class_or_404, get_student_or_404, not_found
 from app.database import get_db
 from app.models import Class, Grade, Student, WarningLevel, WarningLog, WarningStatus, WarningType
 from app.services.early_warning import EarlyWarningService
@@ -26,50 +27,17 @@ class ProcessWarningRequest(BaseModel):
     note: str = Field("", description="处理备注")
 
 
-def _not_found(detail: str) -> HTTPException:
-    """统一 404 响应"""
-    return HTTPException(
-        status_code=404,
-        detail={
-            "detail": detail,
-            "error_code": "RESOURCE_NOT_FOUND",
-            "suggestion": "请检查资源 ID 是否正确",
-        },
-    )
-
-
-def _get_class_or_404(db: Session, class_id: str, school_id: str | None) -> Class:
-    """查询班级，不存在或跨校返回 404"""
-    cls = db.query(Class).filter(Class.id == class_id).first()
-    if not cls:
-        raise _not_found(f"班级 {class_id} 不存在")
-    if school_id and cls.grade and cls.grade.school_id != school_id:
-        raise _not_found(f"班级 {class_id} 不存在")
-    return cls
-
-
-def _get_student_or_404(db: Session, student_id: str, school_id: str | None) -> Student:
-    """查询学生，不存在或跨校返回 404"""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise _not_found(f"学生 {student_id} 不存在")
-    cls = student.class_
-    if school_id and (not cls or not cls.grade or cls.grade.school_id != school_id):
-        raise _not_found(f"学生 {student_id} 不存在")
-    return student
-
-
 def _get_warning_or_404(db: Session, warning_id: str, school_id: str | None) -> WarningLog:
     """查询预警，不存在或跨校返回 404（沿学生所属学校校验）"""
     log = db.query(WarningLog).filter(WarningLog.id == warning_id).first()
     if not log:
-        raise _not_found(f"预警 {warning_id} 不存在")
+        raise not_found(f"预警 {warning_id} 不存在")
     student = log.student
     if not student:
-        raise _not_found(f"预警 {warning_id} 不存在")
+        raise not_found(f"预警 {warning_id} 不存在")
     cls = student.class_
     if school_id and (not cls or not cls.grade or cls.grade.school_id != school_id):
-        raise _not_found(f"预警 {warning_id} 不存在")
+        raise not_found(f"预警 {warning_id} 不存在")
     return log
 
 
@@ -144,7 +112,7 @@ def list_student_warnings(
     权限：teacher / admin
     """
     require_role(current_user, ["teacher", "admin"])
-    _get_student_or_404(db, student_id, current_user.school_id)
+    get_student_or_404(db, student_id, current_user.school_id)
 
     logs = (
         db.query(WarningLog)
@@ -217,7 +185,7 @@ def get_class_warning_summary(
     权限：teacher / admin
     """
     require_role(current_user, ["teacher", "admin"])
-    _get_class_or_404(db, class_id, current_user.school_id)
+    cls = get_class_or_404(db, class_id, current_user.school_id)
 
     logs = (
         db.query(WarningLog)
@@ -240,9 +208,12 @@ def get_class_warning_summary(
         "message": "查询成功",
         "data": {
             "class_id": class_id,
-            "total": len(logs),
-            "by_type": by_type,
-            "by_level": by_level,
-            "critical_count": critical_count,
+            "class_name": cls.name,
+            "summary": {
+                "total": len(logs),
+                "by_type": by_type,
+                "by_level": by_level,
+                "critical_count": critical_count,
+            },
         },
     }

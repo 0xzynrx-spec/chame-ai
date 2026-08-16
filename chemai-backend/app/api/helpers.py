@@ -6,7 +6,7 @@
 
 from fastapi import HTTPException
 
-from app.models import Question, Student
+from app.models import Class, Question, Student
 from app.utils.schemas import UserContext
 
 
@@ -35,6 +35,16 @@ def get_student_or_404(db, student_id: str, school_id: str | None) -> Student:
     if school_id and (not cls or not cls.grade or cls.grade.school_id != school_id):
         raise not_found(f"学生 {student_id} 不存在")
     return student
+
+
+def get_class_or_404(db, class_id: str, school_id: str | None) -> Class:
+    """查询班级，不存在或跨校返回 404（Class → Grade → School 链）"""
+    cls = db.query(Class).filter(Class.id == class_id).first()
+    if not cls:
+        raise not_found(f"班级 {class_id} 不存在")
+    if school_id and cls.grade and cls.grade.school_id != school_id:
+        raise not_found(f"班级 {class_id} 不存在")
+    return cls
 
 
 def ensure_student_access(current_user: UserContext, student_id: str) -> None:

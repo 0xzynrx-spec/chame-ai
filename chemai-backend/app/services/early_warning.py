@@ -24,13 +24,7 @@ from app.models import (
     WarningStatus,
     WarningType,
 )
-
-
-def _as_aware(dt: datetime | None) -> datetime | None:
-    """SQLite 读出 naive 时间 → 补 UTC 时区，保证与 now 可比"""
-    if dt is None:
-        return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+from app.utils.time import as_aware
 
 
 class EarlyWarningService:
@@ -84,7 +78,7 @@ class EarlyWarningService:
 
     def _detect_no_login(self, student: Student, now: datetime) -> dict | None:
         """连续未登录：last_practice_at（为空则 created_at）距今 >= 3 天"""
-        last_active = _as_aware(student.last_practice_at) or _as_aware(student.created_at)
+        last_active = as_aware(student.last_practice_at) or as_aware(student.created_at)
         if last_active is None:
             return None
         days = (now - last_active).days
@@ -179,7 +173,7 @@ class EarlyWarningService:
         for g in grouped.values():
             if g["total"] > 0:
                 result.append((g["record"], g["correct"] / g["total"]))
-        result.sort(key=lambda item: _as_aware(item[0].taken_at), reverse=True)
+        result.sort(key=lambda item: as_aware(item[0].taken_at), reverse=True)
         return result
 
     # ── 创建与去重 ────────────────────────────────────────
