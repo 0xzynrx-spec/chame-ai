@@ -4,6 +4,8 @@
 → 诊断触发的完整闭环，以及权限/隔离与错误处理。
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,6 +48,14 @@ class FakeProvider:
     def recognize(self, file_path: str) -> str:
         self.calls += 1
         return self.text
+
+
+class LowConfidenceProvider(FakeProvider):
+    """mock 提供方：返回低置信度识别结果，触发「待复核」"""
+
+    def recognize_with_confidence(self, file_path: str) -> tuple[str, float]:
+        self.calls += 1
+        return self.text, 0.1
 
 
 def _make_exam_with_questions(db_session, teacher, school):
@@ -210,6 +220,96 @@ class TestOCRGradingPipeline:
         by_q = {a.question_id: a for a in answers}
         assert by_q[q1.id].is_correct is True  # 覆盖生效
         assert by_q[q2.id].is_correct is True  # H2O 归一化判对
+
+    def test_missed_question_marks_review_required(self, client, db_session, teacher_token,
+                                                   teacher, school, class_, student, monkeypatch):
+        """OCR 漏抽某题时，该题补「待复核」，确保逐题覆盖"""
+        monkeypatch.setattr("app.api.ocr.is_ocr_configured", lambda: True)
+
+        exam, q1, q2 = _make_exam_with_questions(db_session, teacher, school)
+        # 只识别到第 1 题，第 2 题漏抽
+        ocr_text = "姓名: 张三\n1. B\n"
+        resp = client.post(
+            "/api/ocr/sessions",
+            files={"file": ("sheet.jpg", b"fake", "image/jpeg")},
+            data={"exam_id": exam.id},
+            headers=_auth(teacher_token),
+        )
+        session_id = resp.json()["data"]["session_id"]
+        process_pending_ocr_tasks(db_session, FakeProvider(ocr_text))
+
+        results_resp = client.get(
+            f"/api/grading/sessions/{session_id}/results", headers=_auth(teacher_token)
+        )
+        results = results_resp.json()["data"]["results"]
+        by_no = {r["question_no"]: r for r in results}
+        assert len(results) == 2
+        assert by_no[1]["judgment"] == "correct"
+        assert by_no[2]["judgment"] == "review_required"
+        assert by_no[2]["student_answer_text"] == ""
+
+    def test_low_confidence_marks_review_required(self, client, db_session, teacher_token,
+                                                  teacher, school, class_, student, monkeypatch):
+        """低置信度识别结果 → 逐题标记待复核"""
+        monkeypatch.setattr("app.api.ocr.is_ocr_configured", lambda: True)
+
+        exam, q1, q2 = _make_exam_with_questions(db_session, teacher, school)
+        ocr_text = "姓名: 张三\n1. B\n2. H2O\n"
+        resp = client.post(
+            "/api/ocr/sessions",
+            files={"file": ("sheet.jpg", b"fake", "image/jpeg")},
+            data={"exam_id": exam.id},
+            headers=_auth(teacher_token),
+        )
+        session_id = resp.json()["data"]["session_id"]
+        process_pending_ocr_tasks(db_session, LowConfidenceProvider(ocr_text))
+
+        results_resp = client.get(
+            f"/api/grading/sessions/{session_id}/results", headers=_auth(teacher_token)
+        )
+        results = results_resp.json()["data"]["results"]
+        assert len(results) == 2
+        assert all(r["judgment"] == "review_required" for r in results)
+
+    def test_confirm_without_exam_id_skips_writeback(self, client, db_session, teacher_token,
+                                                     teacher, school, class_, student, monkeypatch):
+        """无 exam_id 的教师录入判卷：确认时跳过写库，不生成无试卷的 ExamRecord"""
+        monkeypatch.setattr("app.api.ocr.is_ocr_configured", lambda: True)
+        monkeypatch.setattr("app.services.grading.diagnose_answers_background", lambda *a, **k: None)
+
+        q = Question(
+            type=QuestionType.FILL,
+            content_i18n={"zh": "水的化学式"},
+            answer_i18n={"zh": "H2O"},
+            knowledge_points=["化学用语"],
+            created_by=teacher.id,
+        )
+        db_session.add(q)
+        db_session.commit()
+
+        answers = json.dumps(
+            [{"question_no": 1, "type": "fill", "correct_answer": "H2O", "question_id": q.id}]
+        )
+        resp = client.post(
+            "/api/ocr/sessions",
+            files={"file": ("sheet.jpg", b"fake", "image/jpeg")},
+            data={"answers": answers},
+            headers=_auth(teacher_token),
+        )
+        assert resp.status_code == 200
+        session_id = resp.json()["data"]["session_id"]
+
+        process_pending_ocr_tasks(db_session, FakeProvider("姓名: 张三\n1. H2O\n"))
+
+        confirm_resp = client.post(
+            f"/api/grading/sessions/{session_id}/confirm",
+            json={},
+            headers=_auth(teacher_token),
+        )
+        assert confirm_resp.status_code == 200
+        assert confirm_resp.json()["data"]["written"] == 0
+        assert confirm_resp.json()["data"]["skipped"] == 1
+        assert db_session.query(ExamRecord).count() == 0
 
 
 class TestPermissionsAndIsolation:

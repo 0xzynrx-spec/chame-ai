@@ -45,3 +45,12 @@
 - [x] 7.1 UploadSession 状态机守卫：`UPLOAD_SESSION_TRANSITIONS` + `transition_to`，终态 DONE/DISCARDED 变更抛 `InvalidStateTransitionError`
 - [x] 7.2 百度 token 进程级缓存 + 300s 安全边际 + 30 天有效期追踪（共享 token）
 - [x] 7.3 `POST /api/ocr/tasks/{task_id}/retry`：failed→pending，清空错误信息/识别结果，会话 ERROR→READY
+
+## 8. 代码复核修正（/code-review 后）
+
+- [x] 8.1 `confirm_session_results` 无 `exam_id` 时跳过写库，不生成 `exam_id=NULL` 的 ExamRecord；EXAM 记录不再绑定单个 `student_id`
+- [x] 8.2 `grade_session` 对参考答案中 OCR 漏抽的题补「待复核」结果，确保逐题覆盖
+- [x] 8.3 `BaiduOCRProvider.recognize_with_confidence` 抽取逐词概率均值，`process_ocr_task` 传入置信度，使低置信度→待复核生效
+- [x] 8.4 上传建任务后会话 `UPLOADED→READY`，`process_ocr_task` 走 `READY→GRADING`
+- [x] 8.5 `api/ocr.py` 抽 `_get_task_or_404` 去重 get/retry 的任务查询+隔离守卫
+- [x] 8.6 转移表多行化（PEP 8 行长）；OpenSpec spec.md 补「重试失败任务」需求

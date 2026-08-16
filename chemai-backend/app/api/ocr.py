@@ -28,6 +28,21 @@ MAX_SIZE = 10 * 1024 * 1024  # 10MB
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "data" / "uploads"
 
 
+def _get_task_or_404(db: Session, task_id: str, school_id: str | None) -> OCRTask:
+    """按 ID 查询 OCR 任务，跨校或不存在返回 404（学校隔离）"""
+    task = db.query(OCRTask).filter(OCRTask.id == task_id).first()
+    if not task or (school_id and task.school_id != school_id):
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "detail": f"任务 {task_id} 不存在",
+                "error_code": "RESOURCE_NOT_FOUND",
+                "suggestion": "请检查任务 ID 是否正确",
+            },
+        )
+    return task
+
+
 @router.post("/sessions")
 def create_upload_session(
     file: UploadFile = File(..., description="答题卡图片或 PDF（≤10MB）"),
@@ -125,6 +140,9 @@ def create_upload_session(
     db.flush()
     session.ocr_task_id = task.id
 
+    # 提交 OCR 后进入就绪态，等待调度器抢占（UPLOADED → READY）
+    session.transition_to(UploadSessionStatus.READY)
+
     db.commit()
     db.refresh(session)
 
@@ -147,16 +165,7 @@ def get_ocr_task(
     """
     require_role(current_user, ["teacher", "admin"])
 
-    task = db.query(OCRTask).filter(OCRTask.id == task_id).first()
-    if not task or (current_user.school_id and task.school_id != current_user.school_id):
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "detail": f"任务 {task_id} 不存在",
-                "error_code": "RESOURCE_NOT_FOUND",
-                "suggestion": "请检查任务 ID 是否正确",
-            },
-        )
+    task = _get_task_or_404(db, task_id, current_user.school_id)
 
     return {
         "success": True,
@@ -184,16 +193,7 @@ def retry_ocr_task(
     """
     require_role(current_user, ["teacher", "admin"])
 
-    task = db.query(OCRTask).filter(OCRTask.id == task_id).first()
-    if not task or (current_user.school_id and task.school_id != current_user.school_id):
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "detail": f"任务 {task_id} 不存在",
-                "error_code": "RESOURCE_NOT_FOUND",
-                "suggestion": "请检查任务 ID 是否正确",
-            },
-        )
+    task = _get_task_or_404(db, task_id, current_user.school_id)
 
     if task.status != OCRTaskStatus.FAILED:
         raise HTTPException(

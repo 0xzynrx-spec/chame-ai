@@ -62,6 +62,50 @@ def test_recognize_returns_text_from_mock_baidu(tmp_path, monkeypatch):
     assert "1. A" in text
 
 
+def test_recognize_with_confidence_averages_probabilities(tmp_path, monkeypatch):
+    """recognize_with_confidence 取逐词 probability.average 均值"""
+
+    def _post(url, data=None, params=None, timeout=None):
+        if "token" in url:
+            return _FakeResp({"access_token": "tok", "expires_in": 2592000})
+        return _FakeResp(
+            {
+                "words_result": [
+                    {"words": "姓名: 张三", "probability": {"average": 0.8}},
+                    {"words": "1. A", "probability": {"average": 0.6}},
+                ]
+            }
+        )
+
+    monkeypatch.setattr(ocr_module.requests, "post", _post)
+
+    f = tmp_path / "sheet.jpg"
+    f.write_bytes(b"x")
+    provider = BaiduOCRProvider(api_key="k", secret_key="s")
+
+    text, confidence = provider.recognize_with_confidence(str(f))
+    assert "姓名: 张三" in text
+    assert confidence == pytest.approx(0.7)
+
+
+def test_recognize_with_confidence_none_when_no_probability(tmp_path, monkeypatch):
+    """响应未携带 probability 时置信度为 None"""
+
+    def _post(url, data=None, params=None, timeout=None):
+        if "token" in url:
+            return _FakeResp({"access_token": "tok", "expires_in": 2592000})
+        return _FakeResp({"words_result": [{"words": "1. A"}]})
+
+    monkeypatch.setattr(ocr_module.requests, "post", _post)
+
+    f = tmp_path / "sheet.jpg"
+    f.write_bytes(b"x")
+    provider = BaiduOCRProvider(api_key="k", secret_key="s")
+
+    _, confidence = provider.recognize_with_confidence(str(f))
+    assert confidence is None
+
+
 def test_get_ocr_provider_baidu_default(monkeypatch):
     """默认返回百度 provider，识别时才校验凭据"""
     provider = get_ocr_provider()

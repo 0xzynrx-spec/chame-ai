@@ -278,6 +278,27 @@ def grade_session(
                 confirmed=False,
             )
         )
+
+    # 参考答案中存在但 OCR 未抽到的题，补一条「待复核」，确保逐题覆盖
+    parsed_nos = {ans["question_no"] for ans in parsed["answers"]}
+    for no, key_item in key_by_no.items():
+        if no in parsed_nos:
+            continue
+        results.append(
+            GradingResult(
+                session_id=session.id,
+                school_id=session.school_id,
+                student_id=session.student_id,
+                question_id=key_item["question_id"],
+                question_no=no,
+                student_answer_text="",
+                normalized_answer="",
+                correct_answer_text=key_item["correct_answer"],
+                judgment=Judgment.REVIEW_REQUIRED,
+                ocr_confidence=confidence,
+                confirmed=False,
+            )
+        )
     return results
 
 
@@ -297,7 +318,12 @@ def process_ocr_task(db: Session, task: OCRTask, provider: OCRProvider) -> None:
     db.commit()
 
     try:
-        result_text = provider.recognize(session.file_path)
+        # 优先取带置信度的识别结果；不支持置信度的提供方回退到纯文本识别
+        if hasattr(provider, "recognize_with_confidence"):
+            result_text, confidence = provider.recognize_with_confidence(session.file_path)
+        else:
+            result_text = provider.recognize(session.file_path)
+            confidence = None
     except Exception as e:  # OCRNotConfiguredError / 网络 / 接口错误
         logger.exception("OCR 识别失败 task=%s", task.id)
         task.status = OCRTaskStatus.FAILED
@@ -322,8 +348,8 @@ def process_ocr_task(db: Session, task: OCRTask, provider: OCRProvider) -> None:
         session.student_id = student.id
         session.class_id = cls.id if cls else session.class_id
 
-    # 逐题判分
-    results = grade_session(db, session, result_text, confidence=None)
+    # 逐题判分（低置信度 → 待复核，见 grade_question）
+    results = grade_session(db, session, result_text, confidence=confidence)
     db.add_all(results)
     session.transition_to(UploadSessionStatus.GRADED)
     db.commit()
@@ -389,11 +415,16 @@ def confirm_session_results(
                 pass
         r.confirmed = True
 
-        # 待复核、缺题目/学生/班级时不可写库，保留人工处理
+        # 待复核、缺题目/学生/班级/试卷时不可写库，保留人工处理
         if r.judgment == Judgment.REVIEW_REQUIRED:
             skipped += 1
             continue
-        if not r.question_id or not session.student_id or not session.class_id:
+        if (
+            not r.question_id
+            or not session.student_id
+            or not session.class_id
+            or not session.exam_id
+        ):
             skipped += 1
             continue
 
@@ -409,11 +440,11 @@ def confirm_session_results(
                 .first()
             )
             if not exam_record:
+                # 班级级考试记录：学生粒度由 StudentAnswer.student_id 承载，EXAM 记录本身不绑定单个学生
                 exam_record = ExamRecord(
                     exam_id=session.exam_id,
                     class_id=session.class_id,
                     type=RecordType.EXAM,
-                    student_id=session.student_id,
                     taken_at=datetime.now(timezone.utc),
                 )
                 db.add(exam_record)

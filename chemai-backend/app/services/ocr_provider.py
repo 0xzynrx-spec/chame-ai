@@ -105,6 +105,15 @@ class BaiduOCRProvider:
 
     def recognize(self, file_path: str) -> str:
         """识别图片，返回拼接后的文本"""
+        text, _ = self.recognize_with_confidence(file_path)
+        return text
+
+    def recognize_with_confidence(self, file_path: str) -> tuple[str, float | None]:
+        """识别图片，返回 (拼接文本, 整图平均置信度)
+
+        置信度取自百度逐词 probability.average 的均值；响应未携带概率信息时
+        返回 None，调用方据此回退到不按置信度判分的路径。
+        """
         self._ensure_configured()
 
         with open(file_path, "rb") as f:
@@ -113,7 +122,7 @@ class BaiduOCRProvider:
         access_token = self._get_access_token()
         resp = requests.post(
             _GENERAL_BASIC_URL,
-            data={"image": image_b64},
+            data={"image": image_b64, "probability": "true"},
             params={"access_token": access_token},
             timeout=120,
         )
@@ -124,8 +133,19 @@ class BaiduOCRProvider:
                 f"百度 OCR 返回错误 {data.get('error_code')}: {data.get('error_msg', '')}"
             )
 
-        words = [item.get("words", "") for item in data.get("words_result", [])]
-        return "\n".join(words)
+        words_result = data.get("words_result", [])
+        words = [item.get("words", "") for item in words_result]
+        text = "\n".join(words)
+
+        probabilities = [
+            item.get("probability", {}).get("average")
+            for item in words_result
+            if isinstance(item.get("probability"), dict)
+        ]
+        confidences = [p for p in probabilities if isinstance(p, (int, float))]
+        if not confidences:
+            return text, None
+        return text, sum(confidences) / len(confidences)
 
 
 def get_ocr_provider() -> OCRProvider:

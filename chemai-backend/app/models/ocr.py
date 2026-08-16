@@ -45,13 +45,32 @@ class InvalidStateTransitionError(Exception):
 
 # 合法状态转换图：终态 DONE / DISCARDED 无出边，任何变更均抛异常
 UPLOAD_SESSION_TRANSITIONS: dict[UploadSessionStatus, list[UploadSessionStatus]] = {
-    UploadSessionStatus.UPLOADED:  [UploadSessionStatus.READY, UploadSessionStatus.GRADING, UploadSessionStatus.ERROR, UploadSessionStatus.DISCARDED],
-    UploadSessionStatus.READY:     [UploadSessionStatus.GRADING, UploadSessionStatus.ERROR, UploadSessionStatus.DISCARDED],
-    UploadSessionStatus.GRADING:   [UploadSessionStatus.GRADED, UploadSessionStatus.ERROR, UploadSessionStatus.DISCARDED],
-    UploadSessionStatus.GRADED:    [UploadSessionStatus.DONE, UploadSessionStatus.DISCARDED],
-    UploadSessionStatus.ERROR:     [UploadSessionStatus.READY, UploadSessionStatus.DISCARDED],
-    UploadSessionStatus.DONE:      [],   # 终态
-    UploadSessionStatus.DISCARDED: [],   # 终态
+    UploadSessionStatus.UPLOADED: [
+        UploadSessionStatus.READY,
+        UploadSessionStatus.GRADING,
+        UploadSessionStatus.ERROR,
+        UploadSessionStatus.DISCARDED,
+    ],
+    UploadSessionStatus.READY: [
+        UploadSessionStatus.GRADING,
+        UploadSessionStatus.ERROR,
+        UploadSessionStatus.DISCARDED,
+    ],
+    UploadSessionStatus.GRADING: [
+        UploadSessionStatus.GRADED,
+        UploadSessionStatus.ERROR,
+        UploadSessionStatus.DISCARDED,
+    ],
+    UploadSessionStatus.GRADED: [
+        UploadSessionStatus.DONE,
+        UploadSessionStatus.DISCARDED,
+    ],
+    UploadSessionStatus.ERROR: [
+        UploadSessionStatus.READY,
+        UploadSessionStatus.DISCARDED,
+    ],
+    UploadSessionStatus.DONE: [],       # 终态
+    UploadSessionStatus.DISCARDED: [],  # 终态
 }
 
 
