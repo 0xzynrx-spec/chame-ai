@@ -11,11 +11,10 @@ pytestmark = pytest.mark.l1
 
 
 class TestScheduler:
-    def test_registers_single_warning_job(self):
+    def test_registers_warning_and_ocr_jobs(self):
         scheduler = create_scheduler()
-        jobs = scheduler.get_jobs()
-        assert len(jobs) == 1
-        assert jobs[0].id == "early_warning_check"
+        job_ids = {job.id for job in scheduler.get_jobs()}
+        assert job_ids == {"early_warning_check", "ocr_grading_polling"}
 
     def test_run_warning_check_no_exception(self, db_session: Session, student: Student):
         """触发一次全量检查：命中 no_login 规则，正常落库不抛异常"""

@@ -39,8 +39,24 @@ def _run_warning_check_job() -> None:
         db.close()
 
 
+def _run_ocr_polling_job() -> None:
+    """OCR 判卷轮询任务入口：打开会话 → 抢占 pending 任务 → 关闭会话"""
+    from app.database import SessionLocal
+    from app.services.grading import process_pending_ocr_tasks
+
+    db = SessionLocal()
+    try:
+        processed = process_pending_ocr_tasks(db)
+        if processed:
+            logger.info("OCR 判卷任务处理完成 %d 个", processed)
+    except Exception:
+        logger.exception("OCR 判卷轮询任务执行失败")
+    finally:
+        db.close()
+
+
 def create_scheduler() -> BackgroundScheduler:
-    """创建调度器并注册「学情预警检查」任务"""
+    """创建调度器并注册「学情预警检查」「OCR 判卷轮询」任务"""
     scheduler = BackgroundScheduler()
     scheduler.add_job(
         _run_warning_check_job,
@@ -49,6 +65,13 @@ def create_scheduler() -> BackgroundScheduler:
         minute=0,
         timezone="UTC",
         id="early_warning_check",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _run_ocr_polling_job,
+        "interval",
+        seconds=5,
+        id="ocr_grading_polling",
         replace_existing=True,
     )
     return scheduler

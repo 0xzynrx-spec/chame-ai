@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     dashscope_api_key: str = ""
     dashscope_model: str = "qwen-plus"
 
+    # OCR（百度智能云）
+    baidu_ocr_api_key: str = ""
+    baidu_ocr_secret_key: str = ""
+    ocr_sheet_provider: str = "baidu"
+    ocr_confidence_threshold: float = 0.6
+
     model_config = {"env_prefix": "CHEMAI_", "env_file": ".env", "extra": "ignore"}
 
 

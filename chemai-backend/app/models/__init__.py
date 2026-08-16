@@ -31,6 +31,15 @@ from app.models.diagnosis import (
 )
 from app.models.review import ReviewTask, ReviewStatus
 from app.models.warning import WarningLog, WarningType, WarningLevel, WarningStatus
+from app.models.ocr import (
+    UploadSession,
+    UploadSessionStatus,
+    InvalidStateTransitionError,
+    OCRTask,
+    OCRTaskStatus,
+    GradingResult,
+    Judgment,
+)
 
 __all__ = [
     "Base",
@@ -68,4 +77,11 @@ __all__ = [
     "WarningType",
     "WarningLevel",
     "WarningStatus",
+    "UploadSession",
+    "UploadSessionStatus",
+    "InvalidStateTransitionError",
+    "OCRTask",
+    "OCRTaskStatus",
+    "GradingResult",
+    "Judgment",
 ]
