@@ -9,10 +9,19 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import OCRTask, OCRTaskStatus, UploadSession, UploadSessionStatus
+from app.models import (
+    Class,
+    GradingResult,
+    OCRTask,
+    OCRTaskStatus,
+    Student,
+    UploadSession,
+    UploadSessionStatus,
+)
 from app.services.ocr_provider import is_ocr_configured
 from app.utils.deps import get_current_user
 from app.utils.permissions import require_role
@@ -151,6 +160,79 @@ def create_upload_session(
         "message": "上传成功，已创建识别任务",
         "data": {"session_id": session.id, "task_id": task.id},
     }
+
+
+@router.get("/sessions")
+def list_upload_sessions(
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """查询当前教师的判卷会话列表（按创建时间倒序）
+
+    每项含会话状态、关联识别任务、匹配到的学生/班级、关联试卷、文件类型、
+    创建时间与逐题判分摘要。学校隔离；权限：teacher / admin
+    """
+    require_role(current_user, ["teacher", "admin"])
+
+    sessions = (
+        db.query(UploadSession)
+        .filter(UploadSession.teacher_id == current_user.entity_id)
+        .filter(UploadSession.school_id == current_user.school_id)
+        .order_by(UploadSession.created_at.desc())
+        .all()
+    )
+    session_ids = [s.id for s in sessions]
+
+    # 判分摘要：按 session + judgment 分组计数，未判分会话返回全零
+    summary_by_session: dict[str, dict[str, int]] = {}
+    if session_ids:
+        rows = (
+            db.query(GradingResult.session_id, GradingResult.judgment, func.count(GradingResult.id))
+            .filter(GradingResult.session_id.in_(session_ids))
+            .group_by(GradingResult.session_id, GradingResult.judgment)
+            .all()
+        )
+        for sid, judgment, cnt in rows:
+            summary = summary_by_session.setdefault(
+                sid, {"total": 0, "correct": 0, "incorrect": 0, "review_required": 0}
+            )
+            summary[judgment.value] = cnt
+            summary["total"] += cnt
+
+    # 批量取学生/班级名，避免 N+1
+    student_ids = {s.student_id for s in sessions if s.student_id}
+    class_ids = {s.class_id for s in sessions if s.class_id}
+    student_names = (
+        {st.id: st.name for st in db.query(Student).filter(Student.id.in_(student_ids)).all()}
+        if student_ids
+        else {}
+    )
+    class_names = (
+        {c.id: c.name for c in db.query(Class).filter(Class.id.in_(class_ids)).all()}
+        if class_ids
+        else {}
+    )
+
+    data = [
+        {
+            "session_id": s.id,
+            "status": s.status.value,
+            "task_id": s.ocr_task_id,
+            "file_type": s.file_type,
+            "exam_id": s.exam_id,
+            "student_id": s.student_id,
+            "student_name": student_names.get(s.student_id),
+            "class_id": s.class_id,
+            "class_name": class_names.get(s.class_id),
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "summary": summary_by_session.get(
+                s.id, {"total": 0, "correct": 0, "incorrect": 0, "review_required": 0}
+            ),
+        }
+        for s in sessions
+    ]
+
+    return {"success": True, "message": "查询成功", "data": data}
 
 
 @router.get("/tasks/{task_id}")

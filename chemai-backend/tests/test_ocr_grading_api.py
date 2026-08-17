@@ -454,3 +454,87 @@ class TestRetry:
         retry_resp = client.post(f"/api/ocr/tasks/{task_id}/retry", headers=_auth(teacher_token))
         assert retry_resp.status_code == 400
         assert "仅失败任务可重试" in retry_resp.json()["detail"]["detail"]
+
+
+class TestSessionList:
+    """GET /api/ocr/sessions 会话列表"""
+
+    def _create_graded_session(self, client, db_session, teacher_token, teacher, school,
+                               monkeypatch, ocr_text="姓名: 张三\n1. B\n2. NaCl\n"):
+        """上传并完成判分，返回 session_id"""
+        monkeypatch.setattr("app.api.ocr.is_ocr_configured", lambda: True)
+        exam, q1, q2 = _make_exam_with_questions(db_session, teacher, school)
+        resp = client.post(
+            "/api/ocr/sessions",
+            files={"file": ("sheet.jpg", b"fake", "image/jpeg")},
+            data={"exam_id": exam.id},
+            headers=_auth(teacher_token),
+        )
+        assert resp.status_code == 200
+        session_id = resp.json()["data"]["session_id"]
+        process_pending_ocr_tasks(db_session, FakeProvider(ocr_text))
+        return session_id
+
+    def test_list_returns_session_with_summary(self, client, db_session, teacher_token,
+                                               teacher, school, class_, student, monkeypatch):
+        """正常返回：含状态、学生/班级名、判分摘要"""
+        session_id = self._create_graded_session(
+            client, db_session, teacher_token, teacher, school, monkeypatch
+        )
+
+        resp = client.get("/api/ocr/sessions", headers=_auth(teacher_token))
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert len(data) == 1
+        item = data[0]
+        assert item["session_id"] == session_id
+        assert item["status"] == "graded"
+        assert item["task_id"] is not None
+        assert item["student_name"] == "张三"
+        assert item["class_name"] == "高一(3)班"
+        assert item["summary"] == {"total": 2, "correct": 1, "incorrect": 1, "review_required": 0}
+
+    def test_list_empty(self, client, teacher_token):
+        """无会话时返回空列表"""
+        resp = client.get("/api/ocr/sessions", headers=_auth(teacher_token))
+        assert resp.status_code == 200
+        assert resp.json()["data"] == []
+
+    def test_student_forbidden(self, client, student_token):
+        """学生 token 请求列表 → 403"""
+        resp = client.get("/api/ocr/sessions", headers=_auth(student_token))
+        assert resp.status_code == 403
+        assert resp.json()["detail"]["error_code"] == "PERMISSION_DENIED"
+
+    def test_cross_school_isolation(self, client, db_session, teacher_token, teacher, school,
+                                    class_, student, monkeypatch):
+        """他校教师不可见本校会话（返回空）"""
+        self._create_graded_session(
+            client, db_session, teacher_token, teacher, school, monkeypatch
+        )
+
+        other_school = School(name="外校", region="X", address="Y", phone="1")
+        db_session.add(other_school)
+        db_session.commit()
+        other_teacher = Teacher(name="李老师", status="approved", role="teacher",
+                                school_id=other_school.id)
+        db_session.add(other_teacher)
+        db_session.commit()
+        other_token = create_access_token("acc-other", "teacher", other_school.id,
+                                          entity_id=other_teacher.id)
+
+        resp = client.get("/api/ocr/sessions", headers=_auth(other_token))
+        assert resp.status_code == 200
+        assert resp.json()["data"] == []
+
+    def test_summary_counts_review_required(self, client, db_session, teacher_token, teacher,
+                                            school, class_, student, monkeypatch):
+        """漏抽题 → 待复核计入摘要"""
+        self._create_graded_session(
+            client, db_session, teacher_token, teacher, school, monkeypatch,
+            ocr_text="姓名: 张三\n1. B\n",
+        )
+
+        resp = client.get("/api/ocr/sessions", headers=_auth(teacher_token))
+        item = resp.json()["data"][0]
+        assert item["summary"] == {"total": 2, "correct": 1, "incorrect": 0, "review_required": 1}
