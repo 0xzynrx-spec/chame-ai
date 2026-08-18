@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
         questions_router,
         review_router,
         search_router,
+        student_router,
         users_router,
         warning_router,
         wrong_router,
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(classes_router)
     app.include_router(ocr_router)
     app.include_router(grading_router)
+    app.include_router(student_router)
 
     # ── 启动事件 ────────────────────────────────
     @app.on_event("startup")
