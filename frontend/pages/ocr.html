@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>答题卡判卷 — ChemAI 智辅化学</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<!-- Tailwind Configuration — ChemAI Design System（与 panel.html 一致） -->
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        "oxford-blue": "#002147",
+        "oxford-hover": "#001a38",
+        "teal-accent": "#0d7377",
+        "teal-hover": "#0a5c5f",
+        "warm-paper": "#faf8f5",
+        "warm-bg": "#f5f0e8",
+        "text-primary": "#1a1a2e",
+        "text-secondary": "#6b7280",
+        "decor-warm": "#d4a574",
+        "error-red": "#b43c28",
+        "pass-green": "#2c6e49",
+        "deep-emphasis": "#312e81",
+        "link-blue": "#3b82f6",
+      },
+      fontFamily: {
+        "headline": ["Cormorant Garamond", "serif"],
+        "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
+        "chem": ["JetBrains Mono", "IBM Plex Mono", "monospace"],
+      },
+      borderRadius: {
+        "DEFAULT": "0.125rem",
+        "lg": "0.25rem",
+        "xl": "0.5rem",
+        "full": "0.75rem",
+      },
+    },
+  },
+}
+</script>
+
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body { font-family: 'IBM Plex Sans', 'Noto Sans SC', sans-serif; }
+
+/* 骨架屏闪烁 */
+.skeleton { background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%); background-size: 400% 100%; animation: sk 1.4s ease infinite; }
+@keyframes sk { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* 识别中脉冲点 */
+.pulse-dot { animation: pulse 1.4s ease infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* 上传区拖拽高亮 */
+#upload-zone.dragover { border-color: #0d7377; background-color: #f0f7f7; }
+</style>
+</head>
+
+<body class="bg-warm-paper text-text-primary min-h-screen">
+
+<!-- ═══════════════ 登录屏 ═══════════════ -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+    <h1 class="font-headline text-3xl text-oxford-blue mb-1">答题卡判卷</h1>
+    <p class="text-sm text-text-secondary mb-6">教师登录后可上传答题卡并复核判分</p>
+    <label class="block text-sm mb-1 text-text-secondary">用户名</label>
+    <input id="login-username" value="teacher_wang" class="w-full border border-gray-300 rounded px-3 py-2 mb-4 text-sm"/>
+    <label class="block text-sm mb-1 text-text-secondary">密码</label>
+    <input id="login-password" type="password" value="123456" class="w-full border border-gray-300 rounded px-3 py-2 mb-4 text-sm"/>
+    <button onclick="doLogin()" id="login-btn" class="w-full bg-oxford-blue text-white rounded py-2 text-sm hover:bg-oxford-hover">登 录</button>
+    <p id="login-error" class="text-sm text-error-red mt-3"></p>
+  </div>
+</div>
+
+<!-- ═══════════════ 主面板 ═══════════════ -->
+<div id="panel" class="hidden max-w-6xl mx-auto px-6 py-8">
+
+  <!-- 顶栏：标题 + 答案来源 + 操作 -->
+  <header class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="font-headline text-4xl text-oxford-blue">答题卡判卷</h1>
+      <p class="text-sm text-text-secondary mt-1">上传答题卡 · 识别状态跟踪 · 逐题复核 · 确认入库</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <select id="exam-select" class="border border-gray-300 rounded px-3 py-2 text-sm bg-white min-w-48"></select>
+      <button onclick="openAnswerModal()" class="text-sm border border-teal-accent text-teal-accent hover:bg-teal-accent hover:text-white rounded px-3 py-2 transition-colors">录入参考答案</button>
+      <button onclick="refreshAll()" class="text-sm text-teal-accent hover:text-teal-hover flex items-center gap-1">
+        <span class="material-symbols-outlined text-base">refresh</span>刷新
+      </button>
+    </div>
+  </header>
+
+  <!-- 答案来源提示 -->
+  <div id="source-hint" class="mb-4"></div>
+
+  <!-- 上传区 -->
+  <section
+    id="upload-zone"
+    class="mb-6 border-2 border-dashed border-gray-300 rounded-xl bg-white p-10 text-center cursor-pointer transition-colors"
+  >
+    <input id="file-input" type="file" multiple accept=".jpg,.jpeg,.png,.bmp,.webp,.pdf" class="hidden"/>
+    <span class="material-symbols-outlined text-5xl text-teal-accent">upload_file</span>
+    <p class="font-semibold text-oxford-blue mt-3">拖拽答题卡到此，或点击选择文件</p>
+    <p class="text-xs text-text-secondary mt-1">支持 JPG / PNG / BMP / WEBP / PDF，单张 ≤10MB，可一次多张（逐张成卷）</p>
+  </section>
+
+  <!-- 判卷队列 -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-headline text-xl text-oxford-blue">判卷队列</h2>
+      <span id="queue-count" class="text-xs text-text-secondary"></span>
+    </div>
+    <div id="queue" class="space-y-3"></div>
+  </section>
+</div>
+
+<!-- ═══════════════ 参考答案弹窗 ═══════════════ -->
+<div id="answer-modal-mask" onclick="closeAnswerModal()" class="hidden fixed inset-0 bg-black/40 z-40"></div>
+<div id="answer-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <h3 class="font-headline text-2xl text-oxford-blue">录入参考答案</h3>
+      <button onclick="closeAnswerModal()" class="material-symbols-outlined text-text-secondary hover:text-text-primary">close</button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-6 py-4">
+      <p class="text-xs text-text-secondary mb-3">逐题填入正确答案，将作为后续上传答题卡的判分标准（覆盖考试选择）。</p>
+      <div id="answer-rows" class="space-y-2"></div>
+      <button onclick="addAnswerRow()" class="mt-3 text-sm text-teal-accent hover:text-teal-hover flex items-center gap-1">
+        <span class="material-symbols-outlined text-base">add</span>添加题目
+      </button>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+      <button onclick="closeAnswerModal()" class="text-sm text-text-secondary hover:text-text-primary px-4 py-2">取消</button>
+      <button onclick="saveAnswers()" class="text-sm bg-oxford-blue text-white rounded px-4 py-2 hover:bg-oxford-hover">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 复核抽屉 ═══════════════ -->
+<div id="drawer-mask" onclick="closeDrawer()" class="hidden fixed inset-0 bg-black/40 z-40"></div>
+<aside id="drawer" class="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+  <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+    <div>
+      <h3 id="drawer-title" class="font-headline text-2xl text-oxford-blue">判分复核</h3>
+      <p id="drawer-subtitle" class="text-xs text-text-secondary mt-0.5"></p>
+    </div>
+    <button onclick="closeDrawer()" class="material-symbols-outlined text-text-secondary hover:text-text-primary">close</button>
+  </div>
+  <div id="drawer-body" class="flex-1 overflow-y-auto px-6 py-4"></div>
+  <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200">
+    <span id="drawer-summary" class="text-sm text-text-secondary"></span>
+    <button onclick="confirmReview()" id="confirm-btn" class="text-sm bg-teal-accent text-white rounded px-4 py-2 hover:bg-teal-hover">确认入库</button>
+  </div>
+</aside>
+
+<!-- ═══════════════ 提示浮层 ═══════════════ -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] hidden"></div>
+
+<script>
+// ── 常量 ──
+const API_BASE = 'http://localhost:8000';
+const ALLOWED_TYPES = ['jpg', 'jpeg', 'png', 'bmp', 'webp', 'pdf'];
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const IN_PROGRESS = new Set(['uploaded', 'ready', 'grading']);
+const QUESTION_TYPES = [
+  { value: 'choice', label: '选择题' },
+  { value: 'fill', label: '填空题' },
+  { value: 'calc', label: '计算题' },
+  { value: 'experiment', label: '实验题' },
+  { value: 'inference', label: '推断题' },
+];
+
+// ── DOM 快捷 ──
+const $ = (sel) => document.querySelector(sel);
+
+// ── 状态 ──
+let currentExamId = null;          // 当前选中的考试 ID
+let currentAnswers = null;         // 教师录入参考答案 [{question_no, type, correct_answer}]
+let sessions = [];                 // 判卷队列
+let answerDraft = [];              // 参考答案弹窗草稿
+let currentReview = null;          // 当前复核抽屉 {session_id, results, overrides:{no:judgment}, original:{no:judgment}}
+
+// ── HTML 转义（防注入） ──
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ── API 封装 ──
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('chemai_token');
+  const headers = { ...(options.headers || {}) };
+  // FormData 由浏览器自动设置 multipart 边界，其余按 JSON 处理
+  if (options.body && !(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(API_BASE + url, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('chemai_token');
+    showLogin();
+    throw new Error('401');
+  }
+  if (!res.ok) {
+    let msg = `请求失败 (${res.status})`;
+    try {
+      const err = await res.json();
+      if (err && typeof err.detail === 'object' && err.detail) msg = err.detail.detail || err.detail.message || msg;
+      else if (err && err.detail) msg = err.detail;
+      else if (err && err.message) msg = err.message;
+    } catch (e) { /* 保留默认 */ }
+    throw new Error(msg);
+  }
+  return await res.json();
+}
+
+// ── 登录 ──
+function showLogin() {
+  $('#login-screen').classList.remove('hidden');
+  $('#panel').classList.add('hidden');
+}
+function showPanel() {
+  $('#login-screen').classList.add('hidden');
+  $('#panel').classList.remove('hidden');
+}
+async function doLogin() {
+  const err = $('#login-error');
+  err.textContent = '';
+  const btn = $('#login-btn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(API_BASE + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: $('#login-username').value, password: $('#login-password').value, role: 'teacher' }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem('chemai_token', data.data.token);
+      localStorage.setItem('chemai_user', JSON.stringify({ name: data.data.name, role: data.data.role }));
+      showPanel();
+      bootstrap();
+    } else {
+      err.textContent = data.message || '登录失败';
+    }
+  } catch (e) {
+    err.textContent = '网络错误，请确认后端已启动';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── 提示浮层 ──
+function toast(msg, kind = 'info') {
+  const el = $('#toast');
+  const color = kind === 'error' ? 'bg-error-red' : kind === 'success' ? 'bg-pass-green' : 'bg-oxford-blue';
+  el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] ${color} text-white text-sm px-4 py-2 rounded shadow-lg`;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.add('hidden'), 3200);
+}
+
+// ── 骨架屏 ──
+function skeleton(n, h = 'h-16') {
+  return `<div class="space-y-3">${'<div class="skeleton rounded-xl ' + h + '"></div>'.repeat(n)}</div>`;
+}
+
+// ── 启动 ──
+async function bootstrap() {
+  await Promise.all([loadExams(), loadSessions()]);
+  renderSourceHint();
+}
+
+async function refreshAll() {
+  await Promise.all([loadExams(), loadSessions()]);
+  renderSourceHint();
+}
+
+// ═════════════════ 答案来源 ═════════════════
+
+async function loadExams() {
+  try {
+    const res = await apiFetch('/api/exams/?limit=100');
+    if (!res || !res.success) throw new Error('exams');
+    const exams = res.data || [];
+    const sel = $('#exam-select');
+    sel.innerHTML = '<option value="">未选择考试</option>' + exams.map(e => `<option value="${esc(e.id)}">${esc(e.name)}${e.status ? ' · ' + e.status : ''}</option>`).join('');
+    sel.value = currentExamId || '';
+    sel.onchange = () => {
+      currentExamId = sel.value || null;
+      if (currentExamId) currentAnswers = null; // 两种来源互斥
+      renderSourceHint();
+    };
+  } catch (e) {
+    if (e.message === '401') return;
+    $('#exam-select').innerHTML = '<option value="">考试列表加载失败</option>';
+  }
+}
+
+function openAnswerModal() {
+  answerDraft = currentAnswers ? currentAnswers.map(a => ({ ...a })) : [{ question_no: '', type: 'choice', correct_answer: '' }];
+  renderAnswerRows();
+  $('#answer-modal-mask').classList.remove('hidden');
+  $('#answer-modal').classList.remove('hidden');
+  $('#answer-modal').classList.add('flex');
+}
+function closeAnswerModal() {
+  $('#answer-modal-mask').classList.add('hidden');
+  $('#answer-modal').classList.add('hidden');
+  $('#answer-modal').classList.remove('flex');
+}
+function addAnswerRow() {
+  answerDraft.push({ question_no: '', type: 'choice', correct_answer: '' });
+  renderAnswerRows();
+}
+function removeAnswerRow(i) {
+  answerDraft.splice(i, 1);
+  if (answerDraft.length === 0) answerDraft.push({ question_no: '', type: 'choice', correct_answer: '' });
+  renderAnswerRows();
+}
+function updateAnswerDraft(i, key, value) {
+  answerDraft[i][key] = value;
+}
+function renderAnswerRows() {
+  $('#answer-rows').innerHTML = answerDraft.map((a, i) => `
+    <div class="flex items-center gap-2">
+      <input type="number" min="1" value="${esc(a.question_no)}" placeholder="题号"
+        onchange="updateAnswerDraft(${i}, 'question_no', this.value)"
+        class="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm"/>
+      <select onchange="updateAnswerDraft(${i}, 'type', this.value)" class="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+        ${QUESTION_TYPES.map(t => `<option value="${t.value}" ${a.type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
+      </select>
+      <input type="text" value="${esc(a.correct_answer)}" placeholder="正确答案（如 A / H2O）"
+        onchange="updateAnswerDraft(${i}, 'correct_answer', this.value)"
+        class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm"/>
+      <button onclick="removeAnswerRow(${i})" class="material-symbols-outlined text-text-secondary hover:text-error-red">delete</button>
+    </div>`).join('');
+}
+function saveAnswers() {
+  const cleaned = [];
+  for (const a of answerDraft) {
+    const no = parseInt(a.question_no, 10);
+    const ans = String(a.correct_answer || '').trim();
+    if (!no || ans === '') continue;
+    cleaned.push({ question_no: no, type: a.type || 'choice', correct_answer: ans });
+  }
+  if (cleaned.length === 0) {
+    toast('请至少填写一道题的题号与答案', 'error');
+    return;
+  }
+  currentAnswers = cleaned;
+  currentExamId = null; // 两种来源互斥
+  const sel = $('#exam-select');
+  if (sel) sel.value = '';
+  closeAnswerModal();
+  renderSourceHint();
+  toast(`已录入 ${cleaned.length} 道参考答案`);
+}
+
+function renderSourceHint() {
+  const el = $('#source-hint');
+  if (currentExamId) {
+    el.innerHTML = `<div class="text-xs text-teal-accent bg-teal-accent/10 rounded px-3 py-2 flex items-center gap-1"><span class="material-symbols-outlined text-sm">fact_check</span>答案来源：已选择考试（题库匹配）</div>`;
+  } else if (currentAnswers) {
+    el.innerHTML = `<div class="text-xs text-teal-accent bg-teal-accent/10 rounded px-3 py-2 flex items-center gap-1"><span class="material-symbols-outlined text-sm">edit_note</span>答案来源：已录入 ${currentAnswers.length} 道参考答案</div>`;
+  } else {
+    el.innerHTML = `<div class="text-xs text-decor-warm bg-decor-warm/15 rounded px-3 py-2 flex items-center gap-1"><span class="material-symbols-outlined text-sm">warning</span>未选择考试也未录入参考答案，判分结果将全部标记为「待复核」</div>`;
+  }
+}
+
+// ═════════════════ 上传 ═════════════════
+
+function initUpload() {
+  const zone = $('#upload-zone');
+  const input = $('#file-input');
+  zone.onclick = () => input.click();
+  zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('dragover'); };
+  zone.ondragleave = () => zone.classList.remove('dragover');
+  zone.ondrop = (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  };
+  input.onchange = () => { handleFiles(input.files); input.value = ''; };
+}
+
+function handleFiles(fileList) {
+  const files = Array.from(fileList);
+  for (const f of files) {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (!ALLOWED_TYPES.includes(ext)) {
+      toast(`「${f.name}」格式不支持，已跳过`, 'error');
+      continue;
+    }
+    if (f.size > MAX_SIZE) {
+      toast(`「${f.name}」超过 10MB，已跳过`, 'error');
+      continue;
+    }
+    uploadOne(f);
+  }
+}
+
+async function uploadOne(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  if (currentExamId) fd.append('exam_id', currentExamId);
+  if (currentAnswers) fd.append('answers', JSON.stringify(currentAnswers));
+
+  // 先在队首插入「上传中」占位，成功后回填 session_id/task_id
+  const local = { session_id: null, task_id: null, status: 'uploading', filename: file.name, file_type: (file.name.split('.').pop() || '').toLowerCase(), student_name: null, class_name: null, created_at: null, summary: { total: 0, correct: 0, incorrect: 0, review_required: 0 } };
+  sessions.unshift(local);
+  renderQueue();
+
+  try {
+    const res = await apiFetch('/api/ocr/sessions', { method: 'POST', body: fd });
+    local.session_id = res.data.session_id;
+    local.task_id = res.data.task_id;
+    local.status = 'ready';
+    local.created_at = new Date().toISOString();
+    renderQueue();
+    pollOnce();
+  } catch (e) {
+    if (e.message === '401') return;
+    sessions = sessions.filter(s => s !== local);
+    renderQueue();
+    toast(`「${file.name}」上传失败：${e.message}`, 'error');
+  }
+}
+
+// ═════════════════ 会话列表加载 ═════════════════
+
+async function loadSessions() {
+  try {
+    const res = await apiFetch('/api/ocr/sessions');
+    if (!res || !res.success) throw new Error('sessions');
+    // 保留仍在 POST 中的本地占位（服务端尚未返回），其余以服务端列表为准
+    const uploading = sessions.filter(s => s.status === 'uploading');
+    sessions = [...uploading, ...(res.data || []).map(s => ({ ...s, filename: null }))];
+    renderQueue();
+    pollOnce();
+  } catch (e) {
+    if (e.message === '401') return;
+    $('#queue').innerHTML = errorState('会话列表加载失败', 'refreshAll');
+  }
+}
+
+// ═════════════════ 轮询 ═════════════════
+
+function pollOnce() {
+  const active = sessions.filter(s => s.task_id && IN_PROGRESS.has(s.status));
+  if (active.length === 0) return;
+  // 有任务到达终态后，重拉列表回填学生姓名/判分摘要
+  Promise.all(active.map(s => pollTask(s))).then(results => {
+    if (results.some(Boolean)) loadSessions();
+  });
+}
+
+async function pollTask(s) {
+  try {
+    const res = await apiFetch(`/api/ocr/tasks/${s.task_id}`);
+    const t = res.data;
+    if (t.status === 'done') { s.status = 'graded'; return true; }
+    if (t.status === 'failed') { s.status = 'error'; return true; }
+    // pending / processing 保持「识别中」
+    return false;
+  } catch (e) {
+    if (e.message === '401') return false;
+    return false;
+  }
+}
+
+async function retrySession(sessionId) {
+  const s = sessions.find(x => x.session_id === sessionId);
+  if (!s || !s.task_id) return;
+  try {
+    await apiFetch(`/api/ocr/tasks/${s.task_id}/retry`, { method: 'POST' });
+    s.status = 'ready';
+    renderQueue();
+    pollOnce();
+    toast('已重置，等待重新识别');
+  } catch (e) {
+    if (e.message === '401') return;
+    toast(`重试失败：${e.message}`, 'error');
+  }
+}
+
+// ═════════════════ 队列渲染 ═════════════════
+
+function statusBadge(status) {
+  const map = {
+    uploading: ['识别中', 'bg-teal-accent/10 text-teal-accent'],
+    uploaded: ['识别中', 'bg-teal-accent/10 text-teal-accent'],
+    ready: ['识别中', 'bg-teal-accent/10 text-teal-accent'],
+    grading: ['识别中', 'bg-teal-accent/10 text-teal-accent'],
+    graded: ['待复核', 'bg-amber-100 text-amber-700'],
+    done: ['已入库', 'bg-pass-green/10 text-pass-green'],
+    error: ['失败', 'bg-error-red/10 text-error-red'],
+    discarded: ['已丢弃', 'bg-gray-200 text-gray-500'],
+  };
+  const [label, cls] = map[status] || ['—', 'bg-gray-200 text-gray-500'];
+  return `<span class="text-xs font-semibold px-2 py-1 rounded ${cls} whitespace-nowrap">${label}</span>`;
+}
+
+function rowName(s) {
+  if (s.student_name) return esc(s.student_name);
+  if (s.filename) return `文件：${esc(s.filename)}`;
+  return '待识别';
+}
+
+function rowSummary(s) {
+  const sum = s.summary || { total: 0, correct: 0 };
+  if (s.status === 'graded' || s.status === 'done') {
+    return `正确 ${sum.correct}/${sum.total}`;
+  }
+  return '';
+}
+
+function actionButton(s) {
+  if (s.status === 'error') {
+    return `<button onclick="retrySession('${esc(s.session_id)}')" class="text-xs text-error-red border border-error-red rounded px-2 py-1 hover:bg-error-red hover:text-white whitespace-nowrap">重试</button>`;
+  }
+  if (s.status === 'graded' || s.status === 'done') {
+    return `<button onclick="openReview('${esc(s.session_id)}')" class="text-xs text-teal-accent border border-teal-accent rounded px-2 py-1 hover:bg-teal-accent hover:text-white whitespace-nowrap">复核</button>`;
+  }
+  return `<span class="material-symbols-outlined text-teal-accent text-base pulse-dot">hourglass_top</span>`;
+}
+
+function renderQueue() {
+  const el = $('#queue');
+  $('#queue-count').textContent = sessions.length ? `${sessions.length} 张答题卡` : '';
+  if (sessions.length === 0) {
+    el.innerHTML = emptyState('暂无判卷会话', '上传答题卡后将在队列中展示');
+    return;
+  }
+  el.innerHTML = sessions.map(s => `
+    <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
+      <div class="w-10 h-10 rounded-full bg-warm-bg flex items-center justify-center material-symbols-outlined text-teal-accent shrink-0">document_scanner</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-sm truncate">${rowName(s)}</span>
+          ${s.class_name ? `<span class="text-xs text-text-secondary">${esc(s.class_name)}</span>` : ''}
+        </div>
+        <div class="text-xs text-text-secondary mt-0.5">${fmtDateTime(s.created_at)}${s.file_type ? ' · ' + esc(s.file_type).toUpperCase() : ''}</div>
+      </div>
+      <div class="text-sm font-chem text-text-secondary whitespace-nowrap">${rowSummary(s)}</div>
+      ${statusBadge(s.status)}
+      <div class="w-16 flex justify-end">${actionButton(s)}</div>
+    </div>`).join('');
+}
+
+// ═════════════════ 复核抽屉 ═════════════════
+
+const JUDGMENT_META = {
+  correct: { label: '正确', badge: 'bg-pass-green/10 text-pass-green', icon: 'check_circle' },
+  incorrect: { label: '错误', badge: 'bg-error-red/10 text-error-red', icon: 'cancel' },
+  review_required: { label: '待复核', badge: 'bg-amber-100 text-amber-700', icon: 'help' },
+};
+
+async function openReview(sessionId) {
+  const s = sessions.find(x => x.session_id === sessionId);
+  $('#drawer-mask').classList.remove('hidden');
+  $('#drawer').classList.remove('translate-x-full');
+  $('#drawer-title').textContent = s && s.student_name ? `${s.student_name} · 判分复核` : '判分复核';
+  $('#drawer-subtitle').textContent = s && s.class_name ? s.class_name : '';
+  $('#drawer-body').innerHTML = skeleton(3, 'h-16');
+  $('#drawer-summary').textContent = '';
+  try {
+    const res = await apiFetch(`/api/grading/sessions/${sessionId}/results`);
+    if (!res || !res.success) throw new Error('results');
+    currentReview = { session_id: sessionId, results: res.data.results || [], overrides: {} };
+    renderReview();
+  } catch (e) {
+    if (e.message === '401') return;
+    $('#drawer-body').innerHTML = errorState('判分结果加载失败', `openReview('${sessionId}')`);
+  }
+}
+
+function resultKey(r) {
+  if (r.question_no != null) return `no:${r.question_no}`;
+  if (r.question_id) return `id:${r.question_id}`;
+  return null;
+}
+function effectiveJudgment(r) {
+  const key = resultKey(r);
+  return (key && currentReview.overrides[key]) || r.judgment;
+}
+
+function renderReview() {
+  if (!currentReview) return;
+  const results = currentReview.results;
+  const total = results.length;
+  const correct = results.filter(r => effectiveJudgment(r) === 'correct').length;
+  $('#drawer-summary').textContent = `正确 ${correct}/${total}`;
+
+  if (results.length === 0) {
+    $('#drawer-body').innerHTML = emptyState('暂无判分结果', '识别完成后将在此逐题展示判定');
+    $('#confirm-btn').classList.add('hidden');
+    return;
+  }
+  $('#confirm-btn').classList.remove('hidden');
+
+  $('#drawer-body').innerHTML = results.map((r, i) => {
+    const no = r.question_no != null ? r.question_no : '—';
+    const effJudgment = effectiveJudgment(r);
+    const meta = JUDGMENT_META[effJudgment] || JUDGMENT_META.review_required;
+    const studentAnswer = r.student_answer_text || r.normalized_answer || '（空）';
+    return `
+      <div class="border border-gray-200 rounded-lg p-3 mb-3">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="font-chem text-sm font-semibold text-oxford-blue">第 ${esc(no)} 题</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded ${meta.badge}">${meta.label}</span>
+          <select onchange="overrideJudgment(${i}, this.value)" class="ml-auto text-xs border border-gray-300 rounded px-1.5 py-1 bg-white">
+            <option value="correct" ${effJudgment === 'correct' ? 'selected' : ''}>正确</option>
+            <option value="incorrect" ${effJudgment === 'incorrect' ? 'selected' : ''}>错误</option>
+            <option value="review_required" ${effJudgment === 'review_required' ? 'selected' : ''}>待复核</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div><span class="text-xs text-text-secondary">学生作答</span><div class="font-chem">${esc(studentAnswer)}</div></div>
+          <div><span class="text-xs text-text-secondary">参考答案</span><div class="font-chem">${esc(r.correct_answer_text || '—')}</div></div>
+        </div>
+        ${r.ocr_confidence != null ? `<div class="text-xs text-text-secondary mt-2">置信度 ${Math.round(r.ocr_confidence * 100)}%</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function overrideJudgment(i, judgment) {
+  if (!currentReview) return;
+  const r = currentReview.results[i];
+  if (!r) return;
+  const key = resultKey(r);
+  if (!key) return;
+  if (r.judgment === judgment) {
+    delete currentReview.overrides[key];
+  } else {
+    currentReview.overrides[key] = judgment;
+  }
+  renderReview();
+}
+
+async function confirmReview() {
+  if (!currentReview) return;
+  const overrides = Object.entries(currentReview.overrides).map(([key, judgment]) => {
+    const sep = key.indexOf(':');
+    const kind = key.slice(0, sep);
+    const val = key.slice(sep + 1);
+    return kind === 'id' ? { question_id: val, judgment } : { question_no: parseInt(val, 10), judgment };
+  });
+  const btn = $('#confirm-btn');
+  btn.disabled = true;
+  try {
+    const res = await apiFetch(`/api/grading/sessions/${currentReview.session_id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ overrides }),
+    });
+    const s = sessions.find(x => x.session_id === currentReview.session_id);
+    if (s) s.status = 'done';
+    const written = res.data ? res.data.written : 0;
+    const skipped = res.data ? res.data.skipped : 0;
+    closeDrawer();
+    renderQueue();
+    toast(`确认成功：入库 ${written} 题 · 待复核 ${skipped} 题${written > 0 ? ' · 已触发诊断' : ''}`, 'success');
+  } catch (e) {
+    if (e.message === '401') return;
+    toast(`确认失败：${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function closeDrawer() {
+  $('#drawer-mask').classList.add('hidden');
+  $('#drawer').classList.add('translate-x-full');
+  currentReview = null;
+}
+
+// ═════════════════ 空态 / 错误态 ═════════════════
+
+function emptyState(msg, sub) {
+  return `<div class="text-center py-12 text-sm text-text-secondary"><span class="material-symbols-outlined block text-4xl mb-2 text-gray-300">inbox</span>${msg}${sub ? `<p class="text-xs mt-1">${sub}</p>` : ''}</div>`;
+}
+function errorState(msg, retryFn) {
+  return `<div class="text-center py-8"><p class="text-sm text-error-red mb-3">${msg}</p><button onclick="${retryFn}" class="text-sm text-teal-accent hover:text-teal-hover border border-teal-accent rounded px-3 py-1">重试</button></div>`;
+}
+
+// ── 工具 ──
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ── 启动 ──
+(function init() {
+  initUpload();
+  setInterval(pollOnce, 5000);
+  const token = localStorage.getItem('chemai_token');
+  if (token) { showPanel(); bootstrap(); }
+  else { showLogin(); }
+})();
+</script>
+</body>
+</html>
