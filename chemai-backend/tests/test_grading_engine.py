@@ -5,6 +5,7 @@ from app.services.grading import (
     extract_option,
     grade_question,
     normalize_answer,
+    parse_answer_sheet,
 )
 
 
@@ -26,6 +27,39 @@ class TestNormalization:
 
     def test_option_letter_case_insensitive(self):
         assert normalize_answer("a") == normalize_answer("A")
+
+
+class TestParseAnswerSheet:
+    """OCR 文本 → 姓名/学号/逐题作答 解析"""
+
+    def test_standard(self):
+        parsed = parse_answer_sheet("姓名: 张三\n学号: 20250001\n1. B\n2. NaCl")
+        assert parsed["name"] == "张三"
+        assert parsed["student_no"] == "20250001"
+        assert parsed["answers"] == [
+            {"question_no": 1, "answer": "B"},
+            {"question_no": 2, "answer": "NaCl"},
+        ]
+
+    def test_fullwidth_colon_and_separator(self):
+        parsed = parse_answer_sheet("姓名：张三\n学号：20250001\n1、B")
+        assert parsed["name"] == "张三"
+        assert parsed["student_no"] == "20250001"
+        assert parsed["answers"][0]["question_no"] == 1
+
+    def test_fullwidth_question_number(self):
+        parsed = parse_answer_sheet("姓名: 张三\n１、B\n２、NaCl")
+        assert [a["question_no"] for a in parsed["answers"]] == [1, 2]
+
+    def test_name_with_internal_space(self):
+        # 手写 OCR 常在姓名中间插入空格，姓名不应被截断为单字
+        parsed = parse_answer_sheet("姓名: 张 三\n学号: 20250001\n1. B")
+        assert parsed["name"] == "张 三"
+
+    def test_missing_name_prefix(self):
+        parsed = parse_answer_sheet("张三\n1. B")
+        assert parsed["name"] is None
+        assert parsed["answers"][0]["question_no"] == 1
 
 
 class TestExtractOption:

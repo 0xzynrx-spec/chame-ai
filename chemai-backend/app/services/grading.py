@@ -148,7 +148,7 @@ def parse_answer_sheet(ocr_text: str) -> dict:
         line = raw_line.strip()
         if not line:
             continue
-        m = re.search(r"姓名\s*[:：]\s*(\S+)", line)
+        m = re.search(r"姓名\s*[:：]\s*(.+)", line)
         if m:
             result["name"] = m.group(1).strip()
             continue
@@ -182,9 +182,9 @@ def extract_student_info(db: Session, school_id: str | None, ocr_text: str):
             .join(Grade, Class.grade_id == Grade.id)
             .filter(Grade.school_id == school_id)
         )
-    name_normalized = name.replace(" ", "")
+    name_normalized = "".join(name.split())
     for student in query.all():
-        if (student.name or "").replace(" ", "") == name_normalized:
+        if "".join((student.name or "").split()) == name_normalized:
             return student, student.class_
     return None, None
 

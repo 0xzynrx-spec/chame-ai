@@ -28,7 +28,7 @@ from app.models import (
     UploadSession,
     UploadSessionStatus,
 )
-from app.services.grading import process_pending_ocr_tasks
+from app.services.grading import extract_student_info, process_pending_ocr_tasks
 from app.utils.jwt import create_access_token
 
 pytestmark = pytest.mark.l2
@@ -310,6 +310,52 @@ class TestOCRGradingPipeline:
         assert confirm_resp.json()["data"]["written"] == 0
         assert confirm_resp.json()["data"]["skipped"] == 1
         assert db_session.query(ExamRecord).count() == 0
+
+
+class TestStudentMatching:
+    """学生姓名匹配与「学生未找到」跳过入库"""
+
+    def test_extract_student_info_matches_name_with_space(self, db_session, school, student):
+        """OCR 姓名含空格时仍能按姓名匹配到本校学生"""
+        matched = extract_student_info(db_session, school.id, "姓名: 张 三\n1. B")
+        assert matched[0] is not None
+        assert matched[0].id == student.id
+        assert matched[1] is not None
+        assert matched[1].id == student.class_id
+
+    def test_extract_student_info_not_found(self, db_session, school, student):
+        """姓名匹配不到本校任何学生 → 返回 (None, None)"""
+        matched = extract_student_info(db_session, school.id, "姓名: 李四\n1. B")
+        assert matched == (None, None)
+
+    def test_confirm_skips_when_student_not_found(self, client, db_session, teacher_token,
+                                                  teacher, school, student, monkeypatch):
+        """学生未找到：确认时全部跳过，不写库、不产生班级 ExamRecord"""
+        monkeypatch.setattr("app.api.ocr.is_ocr_configured", lambda: True)
+        monkeypatch.setattr("app.services.grading.diagnose_answers_background", lambda *a, **k: None)
+
+        exam, q1, q2 = _make_exam_with_questions(db_session, teacher, school)
+        resp = client.post(
+            "/api/ocr/sessions",
+            files={"file": ("sheet.jpg", b"fake", "image/jpeg")},
+            data={"exam_id": exam.id},
+            headers=_auth(teacher_token),
+        )
+        assert resp.status_code == 200
+        session_id = resp.json()["data"]["session_id"]
+
+        process_pending_ocr_tasks(db_session, FakeProvider("姓名: 李四\n1. B\n2. NaCl\n"))
+
+        confirm_resp = client.post(
+            f"/api/grading/sessions/{session_id}/confirm",
+            json={},
+            headers=_auth(teacher_token),
+        )
+        assert confirm_resp.status_code == 200
+        assert confirm_resp.json()["data"]["written"] == 0
+        assert confirm_resp.json()["data"]["skipped"] == 2
+        assert db_session.query(ExamRecord).count() == 0
+        assert db_session.query(StudentAnswer).count() == 0
 
 
 class TestPermissionsAndIsolation:
