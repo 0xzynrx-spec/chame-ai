@@ -146,7 +146,7 @@
 | 意图 | Intent | 用户输入的目标分类，决定后续路由策略。平台定义两种核心意图：**chat**（自由对话，由 Agent 直接回复）和 **navigate**（功能导航，跳转到特定工具页面）。 |
 | 单 Agent | Single Agent | 基于 LangGraph `create_react_agent` 构建的独立智能体，负责一个明确的对话或任务领域。 |
 | 工具 | Tool | Agent 可调用的功能单元，如"查询题库""生成试卷""诊断学生"等，定义在 `agent/tools/` 中。 |
-| 角色 | Persona | Agent 的应答人格，决定其语气、知识范围和权限。平台定义四种角色：**teacher**（教师）、**tutor**（辅导者）、**parent**（家长）、**admin**（管理员）。 |
+| 角色 | Persona | Agent 的应答人格，决定其语气、知识范围和权限。平台定义四种角色：**teacher**（教研助手）、**student**（化学助教-学生端）、**tutor**（化学助教-通用）、**parent**（家长助手）。每个 Persona 有独立的 YAML 配置（system_prompt + 工具白名单），工具集通过 YAML 白名单与 TOOL_META 注册表取交集过滤。 |
 | 护栏状态 | Guard State | Agent 运行时的安全边界标记，用于拦截不安全的输出（如未审核的题目答案、越权操作等）。 |
 | 网关 | Gateway | 请求入口的统一路由层，负责意图识别、角色路由、护栏检查、负载均衡和降级处理。 |
 
