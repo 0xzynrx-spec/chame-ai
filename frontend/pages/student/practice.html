@@ -43,6 +43,20 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 main { padding-bottom: 72px; }
 .option { transition: all .15s; }
 .option.selected { border-color: #0d7377; background: #e0f2f1; }
+
+/* 骨架屏脉冲 */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: .4; }
+  50% { opacity: .7; }
+}
+.skeleton { background: #e5e7eb; border-radius: 6px; animation: skeleton-pulse 1.5s ease infinite; }
+
+/* 卡片入场动画 */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.card-animate { animation: card-in .4s ease both; }
 </style>
 </head>
 <body class="bg-warm-bg text-text-primary">
@@ -54,20 +68,37 @@ main { padding-bottom: 72px; }
   </header>
 
   <main ref="main">
-    <!-- 加载/错误 -->
-    <div v-if="loading" class="p-8 text-center text-sm text-text-secondary">加载中…</div>
-    <div v-else-if="error" class="p-8 text-center text-sm text-error-red">{{ error }}</div>
+    <!-- 加载态：骨架屏 -->
+    <template v-if="loading && !tasks.length">
+      <div class="flex gap-2 p-4">
+        <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-10 skeleton mb-2"></div><div class="h-7 w-8 skeleton"></div></div>
+        <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-10 skeleton mb-2"></div><div class="h-7 w-8 skeleton"></div></div>
+      </div>
+      <div class="flex flex-col gap-3 px-4">
+        <div class="bg-white rounded-lg p-4 border border-black/5" v-for="i in 3" :key="i">
+          <div class="h-4 w-32 skeleton mb-2"></div>
+          <div class="h-3 w-20 skeleton mb-1"></div>
+          <div class="h-3 w-24 skeleton"></div>
+        </div>
+      </div>
+    </template>
+    <!-- 错误态 -->
+    <div v-else-if="error" class="p-8 text-center">
+      <span class="material-symbols-outlined text-4xl text-error-red">error_outline</span>
+      <p class="mt-3 text-sm text-error-red">{{ error }}</p>
+      <button class="mt-4 px-4 h-9 rounded-lg bg-oxford-blue text-white text-sm" @click="loadTasks">点击重试</button>
+    </div>
 
     <!-- 列表视图 -->
     <section v-else-if="view === 'list'">
       <div class="flex gap-2 p-4">
-        <div class="flex-1 bg-white rounded-lg p-4 text-center border border-black/5">
+        <div class="flex-1 bg-white rounded-lg p-4 text-center border border-black/5 card-animate">
           <div class="text-xs text-text-secondary">待完成</div>
-          <div class="text-2xl font-bold">{{ pendingCount }}</div>
+          <div class="text-2xl font-bold mt-1" ref="statPending">0</div>
         </div>
-        <div class="flex-1 bg-white rounded-lg p-4 text-center border border-black/5">
+        <div class="flex-1 bg-white rounded-lg p-4 text-center border border-black/5 card-animate" style="animation-delay:60ms">
           <div class="text-xs text-text-secondary">已完成</div>
-          <div class="text-2xl font-bold text-pass-green">{{ completedCount }}</div>
+          <div class="text-2xl font-bold text-pass-green mt-1" ref="statDone">0</div>
         </div>
       </div>
 
@@ -78,8 +109,9 @@ main { padding-bottom: 72px; }
       </div>
 
       <div class="flex flex-col gap-3 px-4">
-        <div v-for="t in tasks" :key="t.practice_id"
-             class="bg-white rounded-lg p-4 border border-black/5 shadow-sm cursor-pointer"
+        <div v-for="(t, i) in tasks" :key="t.practice_id"
+             class="bg-white rounded-lg p-4 border border-black/5 shadow-sm cursor-pointer card-animate"
+             :style="{ animationDelay: (i * 60) + 'ms' }"
              @click="startPractice(t)">
           <div class="flex items-center justify-between">
             <span class="text-sm font-semibold">{{ kpLabel(t.knowledge_points) }}</span>
@@ -150,12 +182,7 @@ main { padding-bottom: 72px; }
     </section>
   </main>
 
-  <nav class="bottom-nav">
-    <a class="nav-item" href="index.html"><span class="material-symbols-outlined">smart_toy</span><span>AI助教</span></a>
-    <a class="nav-item active" href="practice.html"><span class="material-symbols-outlined">edit_note</span><span>练习</span></a>
-    <a class="nav-item" href="wrong.html"><span class="material-symbols-outlined">fact_check</span><span>错题</span></a>
-    <a class="nav-item" href="#"><span class="material-symbols-outlined">person</span><span>我的</span></a>
-  </nav>
+  <nav class="bottom-nav"></nav>
 </div>
 
 <script src="common.js"></script>
@@ -174,7 +201,7 @@ createApp({
     answeredCount() { return Object.keys(this.current.answers).length; },
     canSubmit() { return this.current.questions.length > 0 && this.answeredCount === this.current.questions.length; },
   },
-  async mounted() { await this.loadTasks(); },
+  async mounted() { if (!ChemAPI.authGuard()) return; ChemUI.renderTabBar('practice'); await this.loadTasks(); },
   methods: {
     kpLabel(kps) { return (kps && kps.length) ? kps.join(' · ') : '个性化练习'; },
     fmtTime(iso) {
@@ -193,6 +220,10 @@ createApp({
         this.tasks = res.data.tasks || [];
         this.pendingCount = res.data.pending_count;
         this.completedCount = res.data.completed_count;
+        this.$nextTick(() => {
+          if (this.$refs.statPending) ChemUI.animateNumber(this.$refs.statPending, this.pendingCount);
+          if (this.$refs.statDone) ChemUI.animateNumber(this.$refs.statDone, this.completedCount);
+        });
       } catch (e) { this.error = e.message; }
       finally { this.loading = false; }
     },

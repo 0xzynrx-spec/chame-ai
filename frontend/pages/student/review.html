@@ -41,6 +41,20 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 .nav-item.active { color: #002147; }
 .nav-item.active span:last-child { font-weight: 600; }
 main { padding-bottom: 72px; }
+
+/* 骨架屏脉冲 */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: .4; }
+  50% { opacity: .7; }
+}
+.skeleton { background: #e5e7eb; border-radius: 6px; animation: skeleton-pulse 1.5s ease infinite; }
+
+/* 卡片入场动画 */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.card-animate { animation: card-in .4s ease both; }
 </style>
 </head>
 <body class="bg-warm-bg text-text-primary">
@@ -52,8 +66,24 @@ main { padding-bottom: 72px; }
   </header>
 
   <main ref="main">
-    <div v-if="loading" class="p-8 text-center text-sm text-text-secondary">加载中…</div>
-    <div v-else-if="error" class="p-8 text-center text-sm text-error-red">{{ error }}</div>
+    <!-- 加载态：骨架屏 -->
+    <template v-if="loading && !tasks.length">
+      <div class="flex gap-2 p-4">
+        <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-16 skeleton mb-2"></div><div class="h-7 w-8 skeleton"></div></div>
+        <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-10 skeleton mb-2"></div><div class="h-7 w-8 skeleton"></div></div>
+      </div>
+      <div class="flex flex-col gap-3 px-4">
+        <div class="bg-white rounded-lg p-4 border border-black/5" v-for="i in 3" :key="i">
+          <div class="h-4 w-24 skeleton mb-2"></div><div class="h-3 w-32 skeleton"></div>
+        </div>
+      </div>
+    </template>
+    <!-- 错误态 -->
+    <div v-else-if="error" class="p-8 text-center">
+      <span class="material-symbols-outlined text-4xl text-error-red">error_outline</span>
+      <p class="mt-3 text-sm text-error-red">{{ error }}</p>
+      <button class="mt-4 px-4 h-9 rounded-lg bg-oxford-blue text-white text-sm" @click="loadDue">点击重试</button>
+    </div>
 
     <!-- 列表视图 -->
     <section v-else-if="view === 'list'">
@@ -75,7 +105,7 @@ main { padding-bottom: 72px; }
       </div>
 
       <div v-else class="flex flex-col gap-3 px-4">
-        <div v-for="(t, idx) in tasks" :key="t.task_id" class="bg-white rounded-lg p-4 border border-black/5 shadow-sm">
+        <div v-for="(t, idx) in tasks" :key="t.task_id" class="bg-white rounded-lg p-4 border border-black/5 shadow-sm card-animate" :style="{ animationDelay: (idx * 60) + 'ms' }">
           <div class="flex items-center justify-between">
             <span class="text-xs text-text-secondary">第 {{ idx + 1 }} 题 · Lv.{{ t.review_level }}</span>
             <button class="px-3 h-8 rounded-full bg-teal-accent text-white text-xs font-medium" @click="startReview">开始复习</button>
@@ -135,12 +165,7 @@ main { padding-bottom: 72px; }
     </section>
   </main>
 
-  <nav class="bottom-nav">
-    <a class="nav-item" href="index.html"><span class="material-symbols-outlined">smart_toy</span><span>AI助教</span></a>
-    <a class="nav-item" href="practice.html"><span class="material-symbols-outlined">edit_note</span><span>练习</span></a>
-    <a class="nav-item active" href="wrong.html"><span class="material-symbols-outlined">fact_check</span><span>错题</span></a>
-    <a class="nav-item" href="#"><span class="material-symbols-outlined">person</span><span>我的</span></a>
-  </nav>
+  <nav class="bottom-nav"></nav>
 </div>
 
 <script src="common.js"></script>
@@ -157,7 +182,7 @@ createApp({
   computed: {
     currentTask() { return this.tasks[this.currentIndex] || null; },
   },
-  async mounted() { await this.loadDue(); },
+  async mounted() { if (!ChemAPI.authGuard()) return; ChemUI.renderTabBar('wrong'); await this.loadDue(); },
   methods: {
     async loadDue() {
       this.loading = true; this.error = '';
