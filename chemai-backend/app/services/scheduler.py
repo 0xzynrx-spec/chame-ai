@@ -4,7 +4,10 @@
 （SQLAlchemy 同步 Session、全同步 def 端点），故选用同步 BackgroundScheduler
 而非 AsyncIOScheduler。
 
-注册任务：学情预警全量检查（每天 00:00 UTC）。
+注册任务：
+- 学情预警全量检查（每天 00:00 UTC）
+- OCR 判卷轮询（每 5 秒）
+- 周报自动生成（每周一 08:00 UTC）
 """
 
 import logging
@@ -55,6 +58,29 @@ def _run_ocr_polling_job() -> None:
         db.close()
 
 
+def _run_weekly_report_job() -> None:
+    """周报自动生成任务入口：遍历所有学生，为每个学生生成周报"""
+    from app.database import SessionLocal
+    from app.models import Student
+    from app.services.parent.weekly_report import generate_weekly_report
+
+    db = SessionLocal()
+    try:
+        students = db.query(Student).filter(Student.status == "approved").all()
+        generated = 0
+        for student in students:
+            try:
+                generate_weekly_report(db, student.id)
+                generated += 1
+            except Exception as e:
+                logger.warning("学生 %s 周报生成失败: %s", student.id, str(e))
+        logger.info("周报自动生成完成，共生成 %d/%d 条", generated, len(students))
+    except Exception:
+        logger.exception("周报自动生成任务执行失败")
+    finally:
+        db.close()
+
+
 def create_scheduler() -> BackgroundScheduler:
     """创建调度器并注册「学情预警检查」「OCR 判卷轮询」任务"""
     scheduler = BackgroundScheduler()
@@ -72,6 +98,16 @@ def create_scheduler() -> BackgroundScheduler:
         "interval",
         seconds=5,
         id="ocr_grading_polling",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _run_weekly_report_job,
+        "cron",
+        day_of_week="mon",
+        hour=8,
+        minute=0,
+        timezone="UTC",
+        id="weekly_report_generation",
         replace_existing=True,
     )
     return scheduler

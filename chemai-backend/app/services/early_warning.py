@@ -214,4 +214,20 @@ class EarlyWarningService:
             notified_parent=len(bindings) > 0,
         )
         db.add(log)
+
+        # 为每个已绑定家长创建通知
+        if bindings:
+            from app.models import ParentNotification
+            for binding in bindings:
+                notification = ParentNotification(
+                    parent_id=binding.parent_id,
+                    student_id=student.id,
+                    type="score_alert",
+                    title=trigger["title"],
+                    content=trigger["content"],
+                    related_id=log.id,
+                    read=False,
+                )
+                db.add(notification)
+
         return log

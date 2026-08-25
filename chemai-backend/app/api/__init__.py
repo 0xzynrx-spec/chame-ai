@@ -18,6 +18,7 @@ from app.api.classes import router as classes_router
 from app.api.ocr import router as ocr_router
 from app.api.grading import router as grading_router
 from app.api.student import router as student_router
+from app.api.parent import auth_router as parent_auth_router, router as parent_router
 
 __all__ = [
     "auth_router",
@@ -38,4 +39,6 @@ __all__ = [
     "ocr_router",
     "grading_router",
     "student_router",
+    "parent_auth_router",
+    "parent_router",
 ]

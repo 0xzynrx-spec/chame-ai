@@ -254,3 +254,46 @@ def get_student_dashboard(
             "warning_count": warning_count,
         },
     }
+
+
+# ── 绑定码与家长 ──────────────────────────────────────
+
+
+@router.get("/api/student/bind-code")
+def get_bind_code(
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """返回当前学生的绑定码"""
+    require_role(current_user, ["student"])
+    student = db.query(Student).filter(Student.id == current_user.entity_id).first()
+    if not student:
+        return not_found("学生不存在")
+
+    return {
+        "success": True,
+        "data": {
+            "bind_code": student.bind_code,
+        },
+    }
+
+
+@router.get("/api/student/parents")
+def get_student_parents(
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """返回已绑定当前学生的所有家长"""
+    require_role(current_user, ["student"])
+    student = db.query(Student).filter(Student.id == current_user.entity_id).first()
+    if not student:
+        return not_found("学生不存在")
+
+    from app.services.parent.binding import get_parents
+
+    parents = get_parents(db, student.id)
+
+    return {
+        "success": True,
+        "data": parents,
+    }
