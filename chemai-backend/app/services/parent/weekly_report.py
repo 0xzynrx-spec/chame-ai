@@ -67,6 +67,42 @@ def generate_weekly_report(db: Session, student_id: str) -> dict:
     correct_answers = sum(1 for answer, record in answers if answer.is_correct)
     accuracy = correct_answers / total_answers if total_answers > 0 else 0.0
 
+    # 错题分布统计
+    from app.models import Question
+    wrong_answers = [(answer, record) for answer, record in answers if not answer.is_correct]
+    error_distribution = {}
+    for answer, record in wrong_answers:
+        question = db.query(Question).filter(Question.id == answer.question_id).first()
+        if question and question.knowledge_points:
+            try:
+                kps = json.loads(question.knowledge_points) if isinstance(question.knowledge_points, str) else question.knowledge_points
+                for kp in kps:
+                    error_distribution[kp] = error_distribution.get(kp, 0) + 1
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    # 考试数据
+    from app.models import RecordType
+    exam_records = (
+        db.query(ExamRecord)
+        .filter(
+            ExamRecord.student_id == student_id,
+            ExamRecord.type == RecordType.EXAM,
+            ExamRecord.taken_at >= week_start_datetime,
+        )
+        .all()
+    )
+    exam_data = []
+    for exam in exam_records:
+        exam_answers = [a for a, r in answers if r.id == exam.id]
+        exam_correct = sum(1 for a in exam_answers if a.is_correct)
+        exam_total = len(exam_answers)
+        exam_data.append({
+            "name": exam.name or "考试",
+            "score": exam_correct,
+            "total_score": exam_total,
+        })
+
     # 调用 LLM 生成周报
     llm_service = LLMService()
     report_json = _call_llm_for_weekly_report(
@@ -75,6 +111,8 @@ def generate_weekly_report(db: Session, student_id: str) -> dict:
         total_answers=total_answers,
         correct_answers=correct_answers,
         accuracy=accuracy,
+        error_distribution=error_distribution,
+        exam_data=exam_data,
     )
 
     # 缓存周报
@@ -102,18 +140,36 @@ def _call_llm_for_weekly_report(
     total_answers: int,
     correct_answers: int,
     accuracy: float,
+    error_distribution: dict[str, int] | None = None,
+    exam_data: list[dict] | None = None,
 ) -> dict:
     """调用 LLM 生成周报内容
 
     Returns:
         周报 JSON 内容
     """
+    # 错题分布描述
+    error_desc = ""
+    if error_distribution:
+        sorted_errors = sorted(error_distribution.items(), key=lambda x: x[1], reverse=True)
+        error_desc = "错题分布（知识点：错题数）：" + "、".join(f"{kp}({cnt}题)" for kp, cnt in sorted_errors[:5])
+
+    # 考试数据描述
+    exam_desc = ""
+    if exam_data:
+        exam_lines = []
+        for exam in exam_data:
+            exam_lines.append(f"  - {exam['name']}：{exam['score']}/{exam['total_score']}")
+        exam_desc = "本周考试：\n" + "\n".join(exam_lines)
+
     prompt = f"""请为以下学生生成本周学习周报。
 
 学生姓名：{student_name}
 本周作答数：{total_answers}
 正确数：{correct_answers}
 正确率：{accuracy:.1%}
+{error_desc}
+{exam_desc}
 
 请返回 JSON 格式，包含以下字段：
 {{

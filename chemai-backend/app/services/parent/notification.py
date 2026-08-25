@@ -5,14 +5,28 @@
 
 from sqlalchemy.orm import Session
 
-from app.models import ParentNotification
+from app.models import ParentNotification, NotificationType
+
+
+def _serialize_notification(notification: ParentNotification) -> dict:
+    """序列化通知对象为字典"""
+    return {
+        "id": notification.id,
+        "type": notification.type.value if isinstance(notification.type, NotificationType) else notification.type,
+        "title": notification.title,
+        "content": notification.content,
+        "related_id": notification.related_id,
+        "read": notification.read,
+        "student_id": notification.student_id,
+        "created_at": notification.created_at.isoformat() if notification.created_at else None,
+    }
 
 
 def create_notification(
     db: Session,
     parent_id: str,
     student_id: str,
-    type: str,
+    type: NotificationType | str,
     title: str,
     content: str,
     related_id: str = "",
@@ -43,21 +57,13 @@ def create_notification(
     db.add(notification)
     db.commit()
 
-    return {
-        "id": notification.id,
-        "type": notification.type,
-        "title": notification.title,
-        "content": notification.content,
-        "related_id": notification.related_id,
-        "read": notification.read,
-        "created_at": notification.created_at.isoformat(),
-    }
+    return _serialize_notification(notification)
 
 
 def get_notifications(
     db: Session,
     parent_id: str,
-    type: str = None,
+    type: NotificationType | str = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
@@ -89,18 +95,7 @@ def get_notifications(
     )
 
     return {
-        "notifications": [
-            {
-                "id": n.id,
-                "type": n.type,
-                "title": n.title,
-                "content": n.content,
-                "related_id": n.related_id,
-                "read": n.read,
-                "created_at": n.created_at.isoformat(),
-            }
-            for n in notifications
-        ],
+        "notifications": [_serialize_notification(n) for n in notifications],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -120,29 +115,26 @@ def get_notification_by_id(
         notification_id: 通知 ID
 
     Returns:
-        通知信息字典，不存在或无权访问返回 None
+        通知信息字典，不存在返回 None
+
+    Raises:
+        PermissionError: 通知存在但不属于该家长
     """
+    # 先检查通知是否存在
     notification = (
         db.query(ParentNotification)
-        .filter(
-            ParentNotification.id == notification_id,
-            ParentNotification.parent_id == parent_id,
-        )
+        .filter(ParentNotification.id == notification_id)
         .first()
     )
 
     if not notification:
         return None
 
-    return {
-        "id": notification.id,
-        "type": notification.type,
-        "title": notification.title,
-        "content": notification.content,
-        "related_id": notification.related_id,
-        "read": notification.read,
-        "created_at": notification.created_at.isoformat(),
-    }
+    # 检查通知是否属于该家长
+    if notification.parent_id != parent_id:
+        raise PermissionError("无权访问该通知")
+
+    return _serialize_notification(notification)
 
 
 def mark_read(db: Session, parent_id: str, notification_id: str) -> None:

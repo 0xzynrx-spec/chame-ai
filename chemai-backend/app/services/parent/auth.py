@@ -10,13 +10,18 @@ from app.utils.jwt import create_access_token, create_refresh_token
 from app.utils.password import hash_password, verify_password
 
 
-class ParentAuthError(Exception):
-    """家长认证异常"""
+class ServiceError(Exception):
+    """服务层基础异常"""
 
     def __init__(self, message: str, error_code: str):
         super().__init__(message)
         self.message = message
         self.error_code = error_code
+
+
+class ParentAuthError(ServiceError):
+    """家长认证异常"""
+    pass
 
 
 def parent_register(
@@ -53,9 +58,22 @@ def parent_register(
     if not student:
         raise ParentAuthError("绑定码无效", "INVALID_BIND_CODE")
 
-    # 检查是否已绑定该学生（需要先创建家长才能检查，所以这里检查绑定码对应的 student_id）
-    # 由于家长还未创建，我们检查绑定码是否有效即可
-    # 实际的重复绑定检查在绑定关系创建时进行
+    # 检查该手机号对应的家长是否已绑定该学生
+    existing_account = db.query(Account).filter(Account.username == phone, Account.role == "parent").first()
+    if existing_account:
+        existing_parent = db.query(Parent).filter(Parent.id == existing_account.role_id).first()
+        if existing_parent:
+            existing_binding = (
+                db.query(StudentParentBinding)
+                .filter(
+                    StudentParentBinding.student_id == student.id,
+                    StudentParentBinding.parent_id == existing_parent.id,
+                    StudentParentBinding.status == "active",
+                )
+                .first()
+            )
+            if existing_binding:
+                raise ParentAuthError("已绑定该学生", "ALREADY_BOUND")
 
     # 创建家长
     parent = Parent(name=name or phone, phone=phone)

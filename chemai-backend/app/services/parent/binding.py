@@ -6,15 +6,12 @@
 from sqlalchemy.orm import Session
 
 from app.models import Parent, Student, StudentParentBinding
+from app.services.parent.auth import ServiceError
 
 
-class BindingError(Exception):
+class BindingError(ServiceError):
     """绑定操作异常"""
-
-    def __init__(self, message: str, error_code: str):
-        super().__init__(message)
-        self.message = message
-        self.error_code = error_code
+    pass
 
 
 def bind_student(
@@ -84,18 +81,21 @@ def unbind_student(db: Session, parent_id: str, binding_id: str) -> None:
         binding_id: 绑定关系 ID
 
     Raises:
-        BindingError: 绑定关系不存在或无权操作
+        BindingError: 绑定关系不存在
+        PermissionError: 绑定关系不属于该家长
     """
+    # 先检查绑定关系是否存在
     binding = (
         db.query(StudentParentBinding)
-        .filter(
-            StudentParentBinding.id == binding_id,
-            StudentParentBinding.parent_id == parent_id,
-        )
+        .filter(StudentParentBinding.id == binding_id)
         .first()
     )
     if not binding:
         raise BindingError("绑定关系不存在", "BINDING_NOT_FOUND")
+
+    # 检查绑定关系是否属于该家长
+    if binding.parent_id != parent_id:
+        raise PermissionError("无权操作该绑定关系")
 
     binding.status = "inactive"
     db.commit()
@@ -161,7 +161,6 @@ def get_parents(db: Session, student_id: str) -> list[dict]:
             parents.append({
                 "id": parent.id,
                 "name": parent.name,
-                "phone": parent.phone,
                 "relation_type": binding.relation_type,
                 "binding_id": binding.id,
             })
