@@ -89,7 +89,7 @@ main { padding-bottom: 72px; }
         <div v-for="(t, idx) in tasks" :key="t.task_id" class="bg-white rounded-lg p-4 border border-black/5 shadow-sm card-animate" :style="{ animationDelay: (idx * 60) + 'ms' }">
           <div class="flex items-center justify-between">
             <span class="text-xs text-text-secondary">第 {{ idx + 1 }} 题 · Lv.{{ t.review_level }}</span>
-            <button class="px-3 h-8 rounded-full bg-teal-accent text-white text-xs font-medium" @click="startReview">开始复习</button>
+            <button class="px-3 h-8 rounded-full bg-teal-accent text-white text-xs font-medium" @click="startReview(idx)">开始复习</button>
           </div>
           <div class="mt-2 text-sm leading-relaxed line-clamp-2" v-html="t.question.content"></div>
         </div>
@@ -174,12 +174,13 @@ createApp({
         this.tasks = res.data.tasks || [];
         this.dueCount = res.data.due_count || 0;
         this.overdueCount = res.data.overdue_count || 0;
+        await this.$nextTick(); this.renderMath();
       } catch (e) { this.error = e.message; }
       finally { this.loading = false; }
     },
-    async startReview() {
+    async startReview(startIdx) {
       this.view = 'reviewing';
-      this.currentIndex = 0; this.flipped = false;
+      this.currentIndex = (typeof startIdx === 'number') ? startIdx : 0; this.flipped = false;
       this.remembered = 0; this.forgot = 0; this.results = [];
       await this.$nextTick(); this.renderMath();
     },
