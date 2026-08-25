@@ -50,7 +50,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 /* 消息气泡 */
 .msg-row { display: flex; gap: 8px; margin-bottom: 12px; }
 .msg-row.user { flex-direction: row-reverse; }
-.msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; shrink: 0; }
+.msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .msg-avatar.ai { background: #0d7377; color: #fff; }
 .msg-avatar.user { background: #002147; color: #fff; }
 .msg-bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.6; word-break: break-word; }
@@ -94,7 +94,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 .input-bar textarea:focus { border-color: #0d7377; background: #fff; }
 .send-btn {
   width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: #0d7377; color: #fff; border: none; shrink: 0; cursor: pointer; transition: all .15s;
+  background: #0d7377; color: #fff; border: none; flex-shrink: 0; cursor: pointer; transition: all .15s;
 }
 .send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
 .send-btn:not(:disabled):hover { background: #0a5c5f; }
@@ -103,7 +103,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 .chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 8px 16px 12px; scrollbar-width: none; }
 .chip-row::-webkit-scrollbar { display: none; }
 .chip {
-  shrink: 0; height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #e5e7eb;
+  flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #e5e7eb;
   background: #fff; font-size: 13px; color: #374151; cursor: pointer; white-space: nowrap;
   display: flex; align-items: center; gap: 4px; transition: all .15s;
 }
