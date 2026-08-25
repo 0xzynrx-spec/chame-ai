@@ -1,9 +1,27 @@
 """ChemAI Backend — ParentNotification（家长通知）模型"""
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+import enum
+
+from sqlalchemy import Boolean, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+
+class NotificationType(str, enum.Enum):
+    """通知类型枚举"""
+    WEEKLY_REPORT = "weekly_report"
+    SCORE_ALERT = "score_alert"
+    REMINDER = "reminder"
+    DAILY_REPORT = "daily_report"
+
+
+class RelationType(str, enum.Enum):
+    """家长与学生关系类型枚举"""
+    FATHER = "father"
+    MOTHER = "mother"
+    GUARDIAN = "guardian"
+    OTHER = "other"
 
 
 class ParentNotification(Base, TimestampMixin):
@@ -14,8 +32,8 @@ class ParentNotification(Base, TimestampMixin):
 
     __tablename__ = "parent_notifications"
 
-    type: Mapped[str] = mapped_column(
-        String(30), nullable=False, comment="通知类型：weekly_report / score_alert / reminder / daily_report"
+    type: Mapped[NotificationType] = mapped_column(
+        Enum(NotificationType), nullable=False, comment="通知类型"
     )
     title: Mapped[str] = mapped_column(String(200), default="", comment="通知标题")
     content: Mapped[str] = mapped_column(Text, default="", comment="通知内容")

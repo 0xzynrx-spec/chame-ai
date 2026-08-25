@@ -1,9 +1,10 @@
 """ChemAI Backend — StudentParentBinding（亲子绑定）模型"""
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.models.parent_notification import RelationType
 
 
 class StudentParentBinding(Base, TimestampMixin):
@@ -17,8 +18,8 @@ class StudentParentBinding(Base, TimestampMixin):
     bind_code: Mapped[str] = mapped_column(
         String(6), default="", comment="绑定时使用的绑定码"
     )
-    relation_type: Mapped[str] = mapped_column(
-        String(20), default="parent", comment="关系：father / mother / guardian"
+    relation_type: Mapped[RelationType] = mapped_column(
+        Enum(RelationType), default=RelationType.OTHER, comment="关系类型"
     )
     status: Mapped[str] = mapped_column(
         String(20), default="active", comment="绑定状态：active / inactive"

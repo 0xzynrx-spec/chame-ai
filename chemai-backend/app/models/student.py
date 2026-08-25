@@ -35,6 +35,11 @@ class Student(Base, TimestampMixin):
         DateTime, nullable=True, comment="障碍画像最后更新时间"
     )
 
+    # 学习计划（LLM 生成，JSON 格式）
+    learning_plan: Mapped[str] = mapped_column(
+        Text, default="", comment="学习计划 JSON 内容"
+    )
+
     # 练习追踪
     total_practice_count: Mapped[int] = mapped_column(
         Integer, default=0, comment="累计完成练习数"

@@ -31,7 +31,7 @@ from app.models.diagnosis import (
 )
 from app.models.review import ReviewTask, ReviewStatus
 from app.models.warning import WarningLog, WarningType, WarningLevel, WarningStatus
-from app.models.parent_notification import ParentNotification
+from app.models.parent_notification import ParentNotification, NotificationType, RelationType
 from app.models.weekly_report import WeeklyReport
 from app.models.ocr import (
     UploadSession,
@@ -87,5 +87,7 @@ __all__ = [
     "GradingResult",
     "Judgment",
     "ParentNotification",
+    "NotificationType",
+    "RelationType",
     "WeeklyReport",
 ]
