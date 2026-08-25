@@ -230,6 +230,7 @@ createApp({
         ]);
         this.wrongItems = wrongRes.data || [];
         this.dueCount = dueRes.data.due_count || 0;
+        await this.$nextTick(); this.renderMath();
       } catch (e) { this.error = e.message; }
       finally { this.loading = false; }
     },
