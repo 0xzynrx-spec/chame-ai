@@ -65,7 +65,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 .msg-bubble th, .msg-bubble td { border: 1px solid #e5e7eb; padding: 6px 8px; }
 .msg-bubble th { background: #f3f4f6; }
 
-/* 状态指示器 */
+/* Agent 状态栏 */
 .agent-status { display: flex; align-items: center; gap: 6px; padding: 6px 12px; margin: 0 0 8px; font-size: 12px; color: #6b7280; }
 .agent-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #0d7377; animation: dot-pulse .8s ease infinite; }
 @keyframes dot-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
@@ -76,6 +76,13 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 .typing-dots span:nth-child(2) { animation-delay: .15s; }
 .typing-dots span:nth-child(3) { animation-delay: .3s; }
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* 工具调用卡片 */
+.tool-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin: 8px 0; font-size: 13px; }
+.tool-card-header { display: flex; align-items: center; gap: 6px; font-weight: 600; color: #0d7377; }
+.tool-card-header .material-symbols-outlined { font-size: 18px; }
+.tool-card-body { margin-top: 6px; color: #374151; font-size: 12px; line-height: 1.5; }
+.tool-card-timer { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
 /* 输入区 */
 .input-bar { position: sticky; bottom: 56px; background: #fff; border-top: 1px solid #eee; padding: 10px 12px; display: flex; gap: 8px; align-items: flex-end; z-index: 10; }
@@ -110,13 +117,15 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
   transform: translateX(-100%); transition: transform .25s ease;
 }
 .sidebar.open { transform: translateX(0); }
+.sidebar-profile { padding: 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f3f4f6; }
+.sidebar-profile .avatar { width: 40px; height: 40px; border-radius: 50%; background: #002147; color: #fff; display: flex; align-items: center; justify-content: center; }
 .conv-item {
   padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f3f4f6;
   transition: background .15s;
 }
 .conv-item:hover { background: #f9fafb; }
 .conv-item.active { background: #f0fdfa; border-left: 3px solid #0d7377; }
-.conv-item .conv-title { font-size: 14px; font-weight: 500; truncate: true; }
+.conv-item .conv-title { font-size: 14px; font-weight: 500; }
 .conv-item .conv-time { font-size: 11px; color: #9ca3af; margin-top: 2px; }
 
 /* 空态 */
@@ -155,18 +164,30 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
     </div>
 
     <!-- 消息列表 -->
-    <div v-for="(msg, i) in messages" :key="i" class="msg-row" :class="msg.role">
-      <div class="msg-avatar" :class="msg.role">
-        <span class="material-symbols-outlined text-sm" v-if="msg.role === 'ai'">smart_toy</span>
-        <span class="material-symbols-outlined text-sm" v-else>person</span>
+    <template v-for="(msg, i) in messages" :key="i">
+      <!-- 工具调用卡片 -->
+      <div v-if="msg.role === 'tool'" class="tool-card">
+        <div class="tool-card-header">
+          <span class="material-symbols-outlined">build</span>
+          <span>{{ msg.tool_name || '工具调用' }}</span>
+        </div>
+        <div v-if="msg.tool_input" class="tool-card-body">{{ msg.tool_input }}</div>
+        <div v-if="msg.tool_result" class="tool-card-body" style="margin-top:4px;color:#2c6e49">{{ msg.tool_result }}</div>
+        <div v-if="msg.tool_elapsed" class="tool-card-timer">耗时 {{ msg.tool_elapsed }}s</div>
       </div>
-      <div class="msg-bubble" :class="msg.role">
-        <!-- AI 消息：渲染 Markdown -->
-        <div v-if="msg.role === 'ai'" v-html="renderMarkdown(msg.content)" @click="handleBubbleClick($event)"></div>
-        <!-- 用户消息：纯文本 -->
-        <template v-else>{{ msg.content }}</template>
+
+      <!-- 普通消息气泡 -->
+      <div v-else class="msg-row" :class="msg.role">
+        <div class="msg-avatar" :class="msg.role">
+          <span class="material-symbols-outlined text-sm" v-if="msg.role === 'ai'">smart_toy</span>
+          <span class="material-symbols-outlined text-sm" v-else>person</span>
+        </div>
+        <div class="msg-bubble" :class="msg.role">
+          <div v-if="msg.role === 'ai'" v-html="renderMarkdown(msg.content)" @click="handleBubbleClick($event)"></div>
+          <template v-else>{{ msg.content }}</template>
+        </div>
       </div>
-    </div>
+    </template>
 
     <!-- Agent 状态栏 -->
     <div v-if="agentStatus" class="agent-status">
@@ -207,6 +228,14 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
         <span class="material-symbols-outlined text-lg">close</span>
       </button>
     </div>
+    <!-- 学生信息 -->
+    <div class="sidebar-profile">
+      <div class="avatar"><span class="material-symbols-outlined text-lg">person</span></div>
+      <div>
+        <div class="text-sm font-semibold">{{ studentName || '学生' }}</div>
+        <div class="text-xs text-text-secondary">{{ studentClass || '' }}</div>
+      </div>
+    </div>
     <div class="flex-1 overflow-y-auto">
       <div v-if="conversations.length === 0" class="p-4 text-sm text-text-secondary text-center">
         暂无对话记录
@@ -215,7 +244,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
            :class="{ active: conv.id === currentConvId }"
            @click="loadConversation(conv.id)">
         <div class="conv-title">{{ conv.title || '新对话' }}</div>
-        <div class="conv-time">{{ fmtTime(conv.updated_at) }}</div>
+        <div class="conv-time">{{ ChemUI.fmtTime(conv.updated_at) }}</div>
       </div>
     </div>
     <div class="p-3 border-t border-gray-100">
@@ -223,6 +252,8 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
               @click="newConversation(); sidebarOpen = false">
         <span class="material-symbols-outlined text-sm mr-1 align-text-bottom">add</span>新建对话
       </button>
+      <button class="w-full h-9 mt-2 rounded-lg border border-gray-200 text-sm text-text-secondary hover:bg-gray-50 transition-colors"
+              @click="doLogout">退出登录</button>
     </div>
   </div>
 </div>
@@ -234,12 +265,17 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
-      messages: [],       // [{role: 'user'|'ai', content: string}]
+      messages: [],       // [{role: 'user'|'ai'|'tool', content, tool_name, tool_input, tool_result, tool_elapsed}]
       input: '',
       streaming: false,
       streamContent: '',  // 当前流式累积内容
       agentStatus: '',    // thinking | executing | reply | ''
+      toolStartTime: 0,   // 工具调用计时
       sseClient: null,
+
+      // 学生信息
+      studentName: '',
+      studentClass: '',
 
       // 对话管理
       currentConvId: '',
@@ -261,19 +297,19 @@ createApp({
       return { thinking: '正在思考…', executing: '正在检索知识…', reply: '正在组织答案…' }[this.agentStatus] || '';
     },
   },
-  mounted() {
+  async mounted() {
     if (!ChemAPI.authGuard()) return;
     ChemUI.renderTabBar('ai');
     this.loadConversations();
+    await this.loadStudentInfo();
   },
   methods: {
     // ---- Markdown 渲染 ----
     renderMarkdown(text) {
       if (!text) return '';
       let html = text;
-      // 简易 Markdown 转 HTML
       html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-        return `<pre><code class="language-${lang}">${this.escHtml(code)}</code></pre>`;
+        return '<pre><code class="language-' + lang + '">' + this.escHtml(code) + '</code></pre>';
       });
       html = html.replace(/`([^`]+)`/g, '<code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:13px">$1</code>');
       html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -282,15 +318,11 @@ createApp({
       html = html.replace(/^## (.+)$/gm, '<h2 style="font-size:16px;font-weight:600;margin:14px 0 6px">$1</h2>');
       html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:17px;font-weight:700;margin:16px 0 8px">$1</h1>');
       html = html.replace(/^\> (.+)$/gm, '<blockquote style="border-left:3px solid #0d7377;padding-left:12px;color:#6b7280;margin:8px 0">$1</blockquote>');
-      // 有序列表
       html = html.replace(/^(\d+)\. (.+)$/gm, '<li style="margin:2px 0">$2</li>');
-      // 无序列表
       html = html.replace(/^[\-\*] (.+)$/gm, '<li style="margin:2px 0">$1</li>');
-      // 段落（双换行）
       html = html.replace(/\n\n/g, '</p><p>');
       html = html.replace(/\n/g, '<br/>');
       html = '<p>' + html + '</p>';
-      // 清理空段落
       html = html.replace(/<p>\s*<\/p>/g, '');
       return html;
     },
@@ -298,19 +330,31 @@ createApp({
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     },
     handleBubbleClick(e) {
-      // 点击后延迟渲染 KaTeX
       this.$nextTick(() => ChemUI.renderChemContent(e.target.closest('.msg-bubble')));
+    },
+
+    // ---- 学生信息 ----
+    async loadStudentInfo() {
+      try {
+        var sid = ChemAPI.studentId();
+        if (!sid) return;
+        var res = await ChemAPI.get('/api/student/' + sid + '/dashboard');
+        if (res && res.data && res.data.profile) {
+          this.studentName = res.data.profile.name || '';
+          this.studentClass = res.data.profile.class_name || '';
+        }
+      } catch (e) { /* 静默失败 */ }
     },
 
     // ---- 发送消息 ----
     async sendMessage(text) {
-      const content = (text || this.input).trim();
+      var content = (text || this.input).trim();
       if (!content || this.streaming) return;
       this.input = '';
       this.autoResize();
 
       // 用户消息
-      this.messages.push({ role: 'user', content });
+      this.messages.push({ role: 'user', content: content });
       this.scrollToBottom();
 
       // 开始流式请求
@@ -319,92 +363,113 @@ createApp({
       this.agentStatus = 'thinking';
 
       // AI 占位
-      const aiIdx = this.messages.length;
+      var aiIdx = this.messages.length;
       this.messages.push({ role: 'ai', content: '' });
 
-      const sid = ChemAPI.studentId();
-      const token = ChemAPI.getToken();
+      var self = this;
 
       this.sseClient = ChemUI.createSSEClient({
-        url: `/api/chat/${sid}/send`,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({
+        url: '/api/chat/langgraph/stream',
+        body: {
           message: content,
-          conversation_id: this.currentConvId || undefined,
-        }),
-        onOpen: () => { this.agentStatus = 'thinking'; },
-        onMessage: (data) => {
+          thread_id: this.currentConvId || undefined,
+        },
+        onOpen: function () { self.agentStatus = 'thinking'; },
+        onMessage: function (dataStr) {
           try {
-            const parsed = JSON.parse(data);
-            // Agent 状态事件
-            if (parsed.event === 'status') {
-              this.agentStatus = parsed.status || 'thinking';
-              if (parsed.conversation_id && !this.currentConvId) {
-                this.currentConvId = parsed.conversation_id;
+            var parsed = JSON.parse(dataStr);
+            // phase 事件：Agent 阶段切换
+            if (parsed.phase) {
+              self.agentStatus = parsed.phase;
+              if (parsed.thread_id && !self.currentConvId) {
+                self.currentConvId = parsed.thread_id;
               }
               return;
             }
-            // 内容事件
-            if (parsed.event === 'content' || parsed.event === 'delta') {
-              this.streamContent += (parsed.content || parsed.delta || '');
-              this.messages[aiIdx].content = this.streamContent;
-              this.scrollToBottom();
+            // tool_call 事件：工具调用开始
+            if (parsed.tool_call) {
+              self.toolStartTime = Date.now();
+              self.messages.push({
+                role: 'tool',
+                tool_name: parsed.tool_call.name || parsed.tool_call,
+                tool_input: parsed.tool_call.input ? JSON.stringify(parsed.tool_call.input) : '',
+                tool_result: '',
+                tool_elapsed: '',
+              });
+              self.scrollToBottom();
+              return;
+            }
+            // tool_result 事件：工具调用结束
+            if (parsed.tool_result) {
+              var lastTool = null;
+              for (var j = self.messages.length - 1; j >= 0; j--) {
+                if (self.messages[j].role === 'tool') { lastTool = self.messages[j]; break; }
+              }
+              if (lastTool) {
+                lastTool.tool_result = typeof parsed.tool_result === 'string' ? parsed.tool_result : JSON.stringify(parsed.tool_result);
+                if (self.toolStartTime) lastTool.tool_elapsed = ((Date.now() - self.toolStartTime) / 1000).toFixed(1);
+              }
+              self.scrollToBottom();
+              return;
+            }
+            // text 事件：流式文本内容
+            if (parsed.text !== undefined) {
+              self.streamContent += parsed.text;
+              self.messages[aiIdx].content = self.streamContent;
+              self.scrollToBottom();
               return;
             }
             // done 事件
-            if (parsed.event === 'done') {
-              this.agentStatus = '';
-              this.streaming = false;
-              if (parsed.conversation_id) this.currentConvId = parsed.conversation_id;
-              this.saveCurrentConversation();
-              // 渲染 KaTeX
-              this.$nextTick(() => {
-                const area = this.$refs.chatArea;
-                if (area) ChemUI.renderChemContent(area);
-              });
+            if (parsed.event === 'done' || parsed.done) {
+              self.finishStream(aiIdx);
               return;
             }
-            // 纯文本数据行（兼容后端直接发文本）
-            if (typeof parsed === 'string' || (!parsed.event && parsed.data)) {
-              const txt = typeof parsed === 'string' ? parsed : parsed.data;
-              this.streamContent += txt;
-              this.messages[aiIdx].content = this.streamContent;
-              this.scrollToBottom();
+            // 兼容：如果 data 中有 content 字段
+            if (parsed.content) {
+              self.streamContent += parsed.content;
+              self.messages[aiIdx].content = self.streamContent;
+              self.scrollToBottom();
             }
-          } catch {
-            // 非 JSON，当作纯文本
-            this.streamContent += data;
-            this.messages[aiIdx].content = this.streamContent;
-            this.scrollToBottom();
+          } catch (e) {
+            // 非 JSON，当作纯文本追加
+            self.streamContent += dataStr;
+            self.messages[aiIdx].content = self.streamContent;
+            self.scrollToBottom();
           }
         },
-        onError: (err) => {
+        onError: function (err) {
           console.error('SSE error:', err);
-          this.agentStatus = '';
-          if (!this.streamContent) {
-            this.messages[aiIdx].content = '连接中断，请点击重试';
+          self.agentStatus = '';
+          if (!self.streamContent) {
+            self.messages[aiIdx].content = '连接中断，请点击重试';
           }
-          this.streaming = false;
+          self.streaming = false;
         },
-        onDone: () => {
-          this.agentStatus = '';
-          this.streaming = false;
-          if (this.streamContent) this.saveCurrentConversation();
-          this.$nextTick(() => {
-            const area = this.$refs.chatArea;
-            if (area) ChemUI.renderChemContent(area);
-          });
+        onDone: function () {
+          self.finishStream(aiIdx);
         },
+      });
+    },
+
+    finishStream(aiIdx) {
+      this.agentStatus = '';
+      this.streaming = false;
+      if (this.streamContent) {
+        this.currentConvId = this.currentConvId || ('conv_' + Date.now());
+        this.saveCurrentConversation();
+      }
+      this.$nextTick(() => {
+        var area = this.$refs.chatArea;
+        if (area) ChemUI.renderChemContent(area);
       });
     },
 
     // ---- 对话管理 ----
     loadConversations() {
       try {
-        const raw = localStorage.getItem('chemai_conversations');
+        var raw = localStorage.getItem('chemai_conversations');
         this.conversations = raw ? JSON.parse(raw) : [];
-      } catch { this.conversations = []; }
+      } catch (e) { this.conversations = []; }
     },
     saveConversations() {
       localStorage.setItem('chemai_conversations', JSON.stringify(this.conversations));
@@ -413,21 +478,42 @@ createApp({
       if (!this.currentConvId) {
         this.currentConvId = 'conv_' + Date.now();
       }
-      const title = this.messages.find(m => m.role === 'user')?.content?.slice(0, 30) || '新对话';
-      const idx = this.conversations.findIndex(c => c.id === this.currentConvId);
-      const conv = { id: this.currentConvId, title, messages: [...this.messages], updated_at: new Date().toISOString() };
+      var title = '';
+      for (var i = 0; i < this.messages.length; i++) {
+        if (this.messages[i].role === 'user') { title = this.messages[i].content.slice(0, 30); break; }
+      }
+      title = title || '新对话';
+      var idx = -1;
+      for (var j = 0; j < this.conversations.length; j++) {
+        if (this.conversations[j].id === this.currentConvId) { idx = j; break; }
+      }
+      var conv = { id: this.currentConvId, title: title, messages: JSON.parse(JSON.stringify(this.messages)), updated_at: new Date().toISOString() };
       if (idx >= 0) this.conversations.splice(idx, 1, conv);
       else this.conversations.unshift(conv);
       this.saveConversations();
     },
-    loadConversation(id) {
-      const conv = this.conversations.find(c => c.id === id);
+    async loadConversation(id) {
+      var conv = null;
+      for (var i = 0; i < this.conversations.length; i++) {
+        if (this.conversations[i].id === id) { conv = this.conversations[i]; break; }
+      }
       if (!conv) return;
       this.currentConvId = id;
-      this.messages = [...conv.messages];
+      this.messages = JSON.parse(JSON.stringify(conv.messages));
       this.sidebarOpen = false;
+
+      // 尝试从服务端加载历史
+      try {
+        var res = await ChemAPI.get('/api/chat/history/' + id);
+        if (res && res.messages && res.messages.length > 0) {
+          this.messages = res.messages.map(function (m) {
+            return { role: m.role === 'assistant' ? 'ai' : m.role, content: m.content || '' };
+          });
+        }
+      } catch (e) { /* 本地历史兜底 */ }
+
       this.$nextTick(() => {
-        const area = this.$refs.chatArea;
+        var area = this.$refs.chatArea;
         if (area) {
           area.scrollTop = area.scrollHeight;
           ChemUI.renderChemContent(area);
@@ -442,27 +528,24 @@ createApp({
       if (this.sseClient) { this.sseClient.close(); this.sseClient = null; }
       this.streaming = false;
     },
-    fmtTime(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      if (isNaN(d)) return '';
-      return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    doLogout() {
+      ChemAPI.logout();
     },
 
     // ---- 辅助 ----
     autoResize() {
-      const el = this.$refs.inputEl;
+      var el = this.$refs.inputEl;
       if (!el) return;
       el.style.height = 'auto';
       el.style.height = Math.min(el.scrollHeight, 120) + 'px';
     },
     onEnter(e) {
-      if (e.shiftKey) return; // Shift+Enter 换行
+      if (e.shiftKey) return;
       this.sendMessage();
     },
     scrollToBottom() {
       this.$nextTick(() => {
-        const area = this.$refs.chatArea;
+        var area = this.$refs.chatArea;
         if (area) area.scrollTop = area.scrollHeight;
       });
     },

@@ -35,31 +35,11 @@ tailwind.config = {
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
 body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 .app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; }
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; max-width: 430px; height: 56px; display: flex; background: #ffffff; border-top: 1px solid #eeeeee; z-index: 20; }
-.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #8b8b9c; font-size: 10px; text-decoration: none; }
-.nav-item .material-symbols-outlined { font-size: 22px; }
-.nav-item.active { color: #002147; }
-.nav-item.active span:last-child { font-weight: 600; }
 main { padding-bottom: 72px; }
 .option { transition: all .15s; }
 .option.selected { border-color: #0d7377; background: #e0f2f1; }
 .sheet-mask { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
 .sheet { width: 100%; max-width: 430px; max-height: 82%; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 16px 16px 24px; }
-.toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 50; background: #002147; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; }
-
-/* 骨架屏脉冲 */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: .4; }
-  50% { opacity: .7; }
-}
-.skeleton { background: #e5e7eb; border-radius: 6px; animation: skeleton-pulse 1.5s ease infinite; }
-
-/* 卡片入场动画 */
-@keyframes card-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.card-animate { animation: card-in .4s ease both; }
 </style>
 </head>
 <body class="bg-warm-bg text-text-primary">
@@ -216,9 +196,6 @@ main { padding-bottom: 72px; }
     </div>
   </div>
 
-  <!-- Toast -->
-  <div v-if="toast" class="toast">{{ toast }}</div>
-
   <nav class="bottom-nav"></nav>
 </div>
 
@@ -228,7 +205,7 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
-      view: 'list', loading: false, error: '', submitting: false, toast: '',
+      view: 'list', loading: false, error: '', submitting: false,
       wrongItems: [], dueCount: 0, expanded: null,
       variantBusy: {},
       variantSheet: { show: false, questionId: '', variants: [], loading: false, error: '' },
@@ -315,19 +292,11 @@ createApp({
       try {
         await ChemAPI.post(`/api/practice/wrong/${item.question_id}/master`);
         this.wrongItems = this.wrongItems.filter(w => w.question_id !== item.question_id);
-        this.showToast('已标记掌握，不再安排复习');
-      } catch (e) { this.showToast(e.message); }
+        ChemUI.showToast('已标记掌握，不再安排复习');
+      } catch (e) { ChemUI.showToast(e.message, 'error'); }
     },
     backToList() { this.view = 'list'; this.trainResult = null; },
-    showToast(msg) { this.toast = msg; setTimeout(() => { this.toast = ''; }, 2000); },
-    renderMath() {
-      if (window.renderMathInElement && this.$refs.main) {
-        renderMathInElement(this.$refs.main, {
-          delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
-          throwOnError: false,
-        });
-      }
-    },
+    renderMath() { ChemUI.renderMath(this.$refs.main); },
   },
 }).mount('#app');
 </script>

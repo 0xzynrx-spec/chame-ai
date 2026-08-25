@@ -158,11 +158,14 @@ createApp({
       this.loading = true;
       try {
         const res = await ChemAPI.post('/api/auth/login', {
-          identifier: this.identifier.trim(),
+          username: this.identifier.trim(),
           password: this.password,
+          role: 'student',
         });
-        // 存储 token
-        ChemAPI.setToken(res.access_token);
+        // 存储 token（后端返回 {success, data: {token, ...}}）
+        const token = res.data && res.data.token;
+        if (!token) throw new Error('登录响应缺少 token');
+        ChemAPI.setToken(token);
         // 跳转首页
         window.location.href = 'index.html';
       } catch (e) {
