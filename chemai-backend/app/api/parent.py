@@ -175,6 +175,11 @@ def unbind(binding_id: str, token: str, db: Session = Depends(get_db)):
             status_code=400,
             detail={"detail": e.message, "error_code": e.error_code},
         )
+    except PermissionError:
+        raise HTTPException(
+            status_code=403,
+            detail={"detail": "无权操作该绑定关系", "error_code": "PERMISSION_DENIED"},
+        )
 
 
 # ── 总览 ─────────────────────────────────────────
@@ -185,63 +190,12 @@ def overview(student_id: str, token: str, db: Session = Depends(get_db)):
     parent = _get_current_parent(db, token)
     _verify_binding(db, parent.id, student_id)
 
-    from app.models import Student, ExamRecord, StudentAnswer, WarningLog
-
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail={"detail": "学生不存在", "error_code": "NOT_FOUND"})
-
-    # 练习统计
-    total_practice = student.total_practice_count or 0
-    answers = db.query(StudentAnswer).filter(StudentAnswer.student_id == student_id).all()
-    total_answers = len(answers)
-    correct_answers = sum(1 for a in answers if a.is_correct)
-    accuracy = correct_answers / total_answers if total_answers > 0 else 0.0
-
-    # 预警状态
-    latest_warning = (
-        db.query(WarningLog)
-        .filter(WarningLog.student_id == student_id)
-        .order_by(WarningLog.created_at.desc())
-        .first()
-    )
-
-    # 最近考试
-    from app.models import RecordType
-    recent_exams = (
-        db.query(ExamRecord)
-        .filter(ExamRecord.student_id == student_id, ExamRecord.type == RecordType.EXAM)
-        .order_by(ExamRecord.taken_at.desc())
-        .limit(3)
-        .all()
-    )
-
-    return {
-        "success": True,
-        "data": {
-            "student_name": student.name,
-            "practice_stats": {
-                "total_practice": total_practice,
-                "total_answers": total_answers,
-                "accuracy": round(accuracy, 4),
-            },
-            "latest_warning": {
-                "type": latest_warning.warning_type.value if latest_warning else None,
-                "level": latest_warning.level.value if latest_warning else None,
-                "title": latest_warning.title if latest_warning else None,
-            } if latest_warning else None,
-            "recent_exams": [
-                {
-                    "id": exam.id,
-                    "name": exam.name or "考试",
-                    "score": exam.score,
-                    "total_score": exam.total_score,
-                    "taken_at": exam.taken_at.isoformat() if exam.taken_at else None,
-                }
-                for exam in recent_exams
-            ],
-        },
-    }
+    try:
+        from app.services.parent.overview import get_overview_data
+        data = get_overview_data(db, student_id)
+        return {"success": True, "data": data}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"detail": str(e), "error_code": "NOT_FOUND"})
 
 
 # ── 学情报告 ─────────────────────────────────────────
@@ -252,40 +206,12 @@ def learning_report(student_id: str, token: str, db: Session = Depends(get_db)):
     parent = _get_current_parent(db, token)
     _verify_binding(db, parent.id, student_id)
 
-    from app.models import WeeklyReport
-    from datetime import date, timedelta
-
-    # 获取最新周报
-    latest_report = (
-        db.query(WeeklyReport)
-        .filter(WeeklyReport.student_id == student_id)
-        .order_by(WeeklyReport.week_start.desc())
-        .first()
-    )
-
-    # 获取学情特点（从 student 表的 barrier 字段）
-    from app.models import Student
-    student = db.query(Student).filter(Student.id == student_id).first()
-
-    learning_characteristics = None
-    if student and student.barrier_updated_at:
-        learning_characteristics = {
-            "barrier_concept_rate": student.barrier_concept_rate,
-            "barrier_reading_rate": student.barrier_reading_rate,
-            "barrier_expression_rate": student.barrier_expression_rate,
-            "updated_at": student.barrier_updated_at.isoformat(),
-        }
-
-    return {
-        "success": True,
-        "data": {
-            "weekly_report": {
-                "content": latest_report.report_json,
-                "week_start": latest_report.week_start.isoformat(),
-            } if latest_report else None,
-            "learning_characteristics": learning_characteristics,
-        },
-    }
+    try:
+        from app.services.parent.learning_report import get_learning_report_data
+        data = get_learning_report_data(db, student_id)
+        return {"success": True, "data": data}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"detail": str(e), "error_code": "NOT_FOUND"})
 
 
 # ── 通知 ─────────────────────────────────────────
@@ -308,10 +234,13 @@ def list_notifications(
 def get_notification(notification_id: str, token: str, db: Session = Depends(get_db)):
     """通知详情"""
     parent = _get_current_parent(db, token)
-    notification = get_notification_by_id(db, parent.id, notification_id)
-    if not notification:
-        raise HTTPException(status_code=404, detail={"detail": "通知不存在", "error_code": "NOT_FOUND"})
-    return {"success": True, "data": notification}
+    try:
+        notification = get_notification_by_id(db, parent.id, notification_id)
+        if not notification:
+            raise HTTPException(status_code=404, detail={"detail": "通知不存在", "error_code": "NOT_FOUND"})
+        return {"success": True, "data": notification}
+    except PermissionError:
+        raise HTTPException(status_code=403, detail={"detail": "无权访问该通知", "error_code": "PERMISSION_DENIED"})
 
 
 @router.put("/notifications/{notification_id}/read")
