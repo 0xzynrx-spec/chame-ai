@@ -1,0 +1,27 @@
+dimension: pass_at_k
+description: "Pass@K 一致性评分锚点"
+
+scoring_dimensions:
+  - name: chemistry_correctness
+    type: scale
+    scale: 0-5
+    anchors:
+      5: "化学原理完全正确，方程式配平无误"
+      3: "基本正确但有小瑕疵"
+      1: "存在明显化学错误"
+
+  - name: completeness
+    type: scale
+    scale: 0-5
+    anchors:
+      5: "包含所有必要的步骤、方程式、条件说明"
+      3: "主要内容完整但缺少部分细节"
+      1: "严重不完整，缺少核心内容"
+
+  - name: consistency
+    type: scale
+    scale: 0-5
+    anchors:
+      5: "多次生成的输出在核心内容上一致（相同方程式、相同结论）"
+      3: "核心一致但细节有差异"
+      1: "多次生成内容差异过大，无法确认稳定性"

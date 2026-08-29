@@ -1,0 +1,41 @@
+dimension: edge_input
+tier: boundary
+description: "验证系统在各类非正常输入下不崩溃、能合理降级"
+pass_criteria: "不崩溃, 合理降级"
+
+scenarios:
+  - id: EDGE-001
+    name: 超长化学题干
+    input: "将5.6g铁粉加入100mL 2mol/L盐酸中，计算生成氢气体积在标准状况下的数值，并写出相关化学反应方程式，分析反应类型。将5.6g铁粉加入100mL 2mol/L盐酸中，计算生成氢气体积在标准状况下的数值，并写出相关化学反应方程式，分析反应类型。将5.6g铁粉加入100mL 2mol/L盐酸中，计算生成氢气体积在标准状况下的数值，并写出相关化学反应方程式，分析反应类型。将5.6g铁粉加入100mL 2mol/L盐酸中，计算生成氢气体积在标准状况下的数值，并写出相关化学反应方程式，分析反应类型。将5.6g铁粉加入100mL 2mol/L盐酸中，计算生成氢气体积在标准状况下的数值，并写出相关化学反应方程式，分析反应类型。"
+    assertions:
+      - type: no_exception
+
+  - id: EDGE-002
+    name: 纯emoji输入
+    input: "🤔🔬⚗️🧪"
+    assertions:
+      - type: no_exception
+
+  - id: EDGE-003
+    name: 纯数字输入
+    input: "1234567890"
+    assertions:
+      - type: no_exception
+
+  - id: EDGE-004
+    name: 纯空格换行
+    input: "   \n\n   "
+    assertions:
+      - type: no_exception
+
+  - id: EDGE-005
+    name: 混合中英文化学符号LaTeX
+    input: "解释 $\\ce{H2SO4}$ 和 NaOH 的中和反应，生成 $\\ce{Na2SO4}$ 和 $\\ce{H2O}$"
+    assertions:
+      - type: no_exception
+
+  - id: EDGE-006
+    name: 仅换行符
+    input: "\n\n\n"
+    assertions:
+      - type: no_exception

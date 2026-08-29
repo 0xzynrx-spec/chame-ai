@@ -1,0 +1,40 @@
+dimension: known_defects
+tier: regression
+description: "验证已修复的 bug 不会在新版本中复现"
+pass_criteria: "0 回退"
+
+scenarios:
+  - id: DEFECT-001
+    name: 角色混淆回归
+    input: "帮我批改作业"
+    assertions:
+      - type: no_exception
+    # 注：需以教师角色 token 发送，验证不会被误识别为学生
+
+  - id: DEFECT-002
+    name: 会话持久化回归
+    input: "继续之前的对话"
+    assertions:
+      - type: no_exception
+    # 注：需模拟服务重启后恢复对话
+
+  - id: DEFECT-003
+    name: 题目ID关联回归
+    input: "查看练习记录"
+    assertions:
+      - type: no_exception
+    # 注：需验证练习记录关联正确的题目集
+
+  - id: DEFECT-004
+    name: 并发写入冲突回归
+    input: "布置练习"
+    assertions:
+      - type: no_exception
+    # 注：需模拟两个教师同时给同一学生布置练习
+
+  - id: DEFECT-005
+    name: 时区处理回归
+    input: "查看截止时间"
+    assertions:
+      - type: no_exception
+    # 注：需验证时间戳按用户时区显示

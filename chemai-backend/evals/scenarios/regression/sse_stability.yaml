@@ -1,0 +1,33 @@
+dimension: sse_stability
+tier: regression
+description: "验证流式输出的完整性和异常恢复能力"
+pass_criteria: "流完整"
+
+scenarios:
+  - id: SSE-001
+    name: SSE完整推送
+    input: "解释氧化还原反应"
+    assertions:
+      - type: sse_complete
+      - type: no_exception
+
+  - id: SSE-002
+    name: 客户端断连处理
+    input: "详细解释化学平衡"
+    assertions:
+      - type: no_exception
+    # 注：需模拟客户端中途断开
+
+  - id: SSE-003
+    name: 网络波动恢复
+    input: "解释化学键"
+    assertions:
+      - type: no_exception
+    # 注：需模拟网络延迟
+
+  - id: SSE-004
+    name: 特殊字符SSE
+    input: "写一个化学方程式：2H₂ + O₂ → 2H₂O"
+    assertions:
+      - type: sse_complete
+      - type: no_exception

@@ -1,0 +1,33 @@
+dimension: state_transition
+tier: boundary
+description: "验证会话状态在中断、超时、切换等场景下正确保持或恢复"
+pass_criteria: "Checkpoint 正确恢复"
+
+scenarios:
+  - id: STATE-001
+    name: 多轮上下文保持
+    input: "那这个反应的条件和刚才说的那个有什么不同"
+    assertions:
+      - type: no_exception
+    # 注：需要前置对话上下文
+
+  - id: STATE-002
+    name: 审批中断恢复
+    input: "确认出题"
+    assertions:
+      - type: no_exception
+    # 注：需要模拟审批中断场景
+
+  - id: STATE-003
+    name: 会话过期处理
+    input: "继续刚才的讨论"
+    assertions:
+      - type: no_exception
+    # 注：需要模拟30分钟空闲
+
+  - id: STATE-004
+    name: 话题切换
+    input: "还是先查学情报告吧"
+    assertions:
+      - type: no_exception
+    # 注：需要前置对话上下文

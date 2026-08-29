@@ -1,0 +1,82 @@
+dimension: perf_baseline
+tier: regression
+description: "验证系统各项操作的响应时间和资源消耗在可接受范围内"
+pass_criteria: "延迟 < P95 目标"
+
+scenarios:
+  - id: PERF-001
+    name: Chat端点响应延迟
+    input: "你好"
+    operation: "单次 Chat SSE 请求"
+    threshold: "< 5000ms"
+    measurement: "本地环境，取 10 次请求的 P95"
+    assertions:
+      - type: latency_under
+        max_ms: 5000
+
+  - id: PERF-002
+    name: 出题请求延迟
+    input: "出3道氧化还原选择题"
+    operation: "端到端生成题目"
+    threshold: "< 30000ms"
+    measurement: "本地环境，单用户，取 5 次请求的 P95"
+    assertions:
+      - type: latency_under
+        max_ms: 30000
+
+  - id: PERF-003
+    name: 10并发请求
+    input: "解释化学平衡"
+    operation: "10 个并发请求"
+    threshold: "无请求超时"
+    measurement: "本地环境，模拟 10 并发"
+    assertions:
+      - type: no_exception
+
+  - id: PERF-004
+    name: OCR识别延迟
+    input: "识别这张答题卡"
+    operation: "单次 OCR 识别"
+    threshold: "< 2000ms"
+    measurement: "本地环境，取 20 次请求的 P95"
+    assertions:
+      - type: latency_under
+        max_ms: 2000
+
+  - id: PERF-005
+    name: 学生障碍诊断延迟
+    input: "诊断张三的学习障碍"
+    operation: "单次障碍诊断"
+    threshold: "< 10000ms"
+    measurement: "本地环境，取 10 次请求的 P95"
+    assertions:
+      - type: latency_under
+        max_ms: 10000
+
+  - id: PERF-006
+    name: 班级学情报告延迟
+    input: "生成高一3班学情报告"
+    operation: "班级学情报告生成"
+    threshold: "< 15000ms"
+    measurement: "本地环境，取 5 次请求的 P95"
+    assertions:
+      - type: latency_under
+        max_ms: 15000
+
+  - id: PERF-007
+    name: 系统空闲内存
+    input: "你好"
+    operation: "系统空闲时内存占用"
+    threshold: "< 200MB"
+    measurement: "服务启动后空闲 30 秒"
+    assertions:
+      - type: no_exception
+
+  - id: PERF-008
+    name: 数据库连接池压力
+    input: "查看学情报告"
+    operation: "10 并发持续 30 秒混合请求"
+    threshold: "无连接池耗尽"
+    measurement: "本地环境，连接池默认值"
+    assertions:
+      - type: no_exception

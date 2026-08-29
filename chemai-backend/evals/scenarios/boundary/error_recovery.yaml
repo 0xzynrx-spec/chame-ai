@@ -1,0 +1,40 @@
+dimension: error_recovery
+tier: boundary
+description: "验证系统在外部依赖故障时能优雅降级，不雪崩"
+pass_criteria: "Graceful degradation"
+
+scenarios:
+  - id: ERR-001
+    name: LLM服务500错误
+    input: "解释氧化还原反应"
+    assertions:
+      - type: no_exception
+    # 注：实际测试需 mock DashScope 返回 500
+
+  - id: ERR-002
+    name: LLM返回非JSON
+    input: "帮我出5道选择题"
+    assertions:
+      - type: no_exception
+    # 注：实际测试需 mock DashScope 返回纯文本
+
+  - id: ERR-003
+    name: 检索服务超时
+    input: "搜索氧化还原的资料"
+    assertions:
+      - type: no_exception
+    # 注：实际测试需 mock 检索服务超时
+
+  - id: ERR-004
+    name: 数据库连接池耗尽
+    input: "查看学情报告"
+    assertions:
+      - type: no_exception
+    # 注：实际测试需模拟高并发
+
+  - id: ERR-005
+    name: 工具调用超时
+    input: "诊断张三的学习障碍"
+    assertions:
+      - type: no_exception
+    # 注：实际测试需 mock 工具执行 >30s
