@@ -172,17 +172,17 @@
           <span class="text-xs text-text-secondary">{{ report.week_start }}</span>
         </div>
         <div class="mt-3 space-y-3">
-          <div v-if="weeklyReport.summary">
+          <div v-if="weeklyReport['综合评价'] || weeklyReport.summary">
             <p class="text-xs font-medium text-text-secondary mb-1">综合评价</p>
-            <p class="text-sm text-gray-700 leading-relaxed">{{ weeklyReport.summary }}</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ weeklyReport['综合评价'] || weeklyReport.summary }}</p>
           </div>
-          <div v-if="weeklyReport.detail">
+          <div v-if="weeklyReport['具体表现'] || weeklyReport.detail">
             <p class="text-xs font-medium text-text-secondary mb-1">具体表现</p>
-            <p class="text-sm text-gray-700 leading-relaxed">{{ weeklyReport.detail }}</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ weeklyReport['具体表现'] || weeklyReport.detail }}</p>
           </div>
-          <div v-if="weeklyReport.advice">
+          <div v-if="weeklyReport['家庭建议'] || weeklyReport.advice">
             <p class="text-xs font-medium text-text-secondary mb-1">家庭建议</p>
-            <p class="text-sm text-gray-700 leading-relaxed">{{ weeklyReport.advice }}</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ weeklyReport['家庭建议'] || weeklyReport.advice }}</p>
           </div>
           <div v-if="weeklyReport.薄弱知识点?.length">
             <p class="text-xs font-medium text-text-secondary mb-1">薄弱知识点</p>
