@@ -11,30 +11,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="tailwind-config.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script>
-tailwind.config = {
-  theme: { extend: {
-    colors: {
-      "oxford-blue": "#002147", "oxford-hover": "#001a38",
-      "teal-accent": "#0d7377", "teal-hover": "#0a5c5f",
-      "warm-paper": "#faf8f5", "warm-bg": "#f5f0e8",
-      "text-primary": "#1a1a2e", "text-secondary": "#6b7280",
-      "error-red": "#b43c28", "pass-green": "#2c6e49",
-    },
-    fontFamily: {
-      "headline": ["Cormorant Garamond", "serif"],
-      "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
-    },
-  } },
-}
-</script>
 
 <style>
-.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
-.app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; }
-
 input:focus { outline: none; border-color: #0d7377; box-shadow: 0 0 0 2px rgba(13,115,119,.15); }
 input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); }
 
@@ -69,7 +49,7 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
   </div>
 
   <!-- 表单区 -->
-  <div class="px-6">
+  <div class="login-form px-6">
     <!-- 错误提示 -->
     <div v-if="error" class="mb-4 p-3 rounded-lg bg-red-50 text-sm text-error-red text-center">
       {{ error }}
@@ -108,8 +88,8 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
       </div>
     </div>
 
-    <!-- 绑定码（首次注册时显示） -->
-    <div class="mb-4">
+    <!-- 绑定码（注册模式时显示） -->
+    <div v-if="mode === 'register'" class="mb-4">
       <label class="block text-xs text-text-secondary mb-1.5">
         绑定码
         <span class="text-text-secondary font-normal">（首次登录必填）</span>
@@ -125,7 +105,7 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
     </div>
 
     <!-- 绑定码说明卡片 -->
-    <div class="mb-6 rounded-lg bg-blue-50 p-3 flex items-start gap-2">
+    <div v-if="mode === 'register'" class="mb-6 rounded-lg bg-blue-50 p-3 flex items-start gap-2">
       <span class="material-symbols-outlined text-blue-500 text-lg mt-0.5">info</span>
       <div>
         <p class="text-sm font-medium text-blue-800">什么是绑定码？</p>
@@ -140,25 +120,16 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
             @click="submit">
       <span v-if="loading" class="flex items-center justify-center gap-2">
         <svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-        {{ bindCode ? '注册中…' : '登录中…' }}
+        {{ mode === 'register' ? '注册中…' : '登录中…' }}
       </span>
-      <span v-else>{{ bindCode ? '注册并绑定' : '登 录' }}</span>
+      <span v-else>{{ mode === 'register' ? '注册并绑定' : '登 录' }}</span>
     </button>
 
     <!-- 底部提示 -->
     <p class="mt-4 text-center text-xs text-text-secondary">
-      <span v-if="!bindCode" class="text-teal-accent cursor-pointer" @click="showMode = 'register'">首次使用？填写绑定码注册</span>
-      <span v-else class="text-teal-accent cursor-pointer" @click="showMode = 'login'">已有账号？直接登录</span>
+      <span v-if="mode === 'login'" class="text-teal-accent cursor-pointer" @click="mode = 'register'">首次使用？填写绑定码注册</span>
+      <span v-else class="text-teal-accent cursor-pointer" @click="mode = 'login'">已有账号？直接登录</span>
     </p>
-  </div>
-
-  <!-- 帮助弹窗 -->
-  <div v-if="showHelp" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" @click.self="showHelp = false">
-    <div class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
-      <h2 class="text-base font-semibold text-oxford-blue">如何获取绑定码？</h2>
-      <p class="mt-2 text-sm text-gray-600 leading-relaxed">打开孩子 ChemAI App 的"我的"页面，在个人设置中找到"家长绑定码"，将 6 位数字告诉您即可。</p>
-      <button class="mt-4 h-11 w-full rounded-lg bg-oxford-blue text-sm font-medium text-white" @click="showHelp = false">我知道了</button>
-    </div>
   </div>
 
   <!-- 版本号 -->
@@ -169,59 +140,73 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
 
 <script src="parent-common.js"></script>
 <script>
-const { createApp } = Vue;
+const { createApp, ref, onMounted } = Vue;
 createApp({
-  data() {
-    return {
-      phone: '',
-      password: '',
-      bindCode: '',
-      showPwd: false,
-      loading: false,
-      error: '',
-      success: '',
-      fieldError: '',
-      showMode: 'login',
-      showHelp: false,
+  setup() {
+    const phone = ref('');
+    const password = ref('');
+    const bindCode = ref('');
+    const mode = ref('login');
+    const showPwd = ref(false);
+    const loading = ref(false);
+    const error = ref('');
+    const success = ref('');
+    const fieldError = ref('');
+
+    // 客户端错误映射：后端消息 → spec 要求的提示文案
+    const ERROR_MAP = {
+      'bind_code': '绑定码错误',
+      'already registered': '该手机号已注册',
+      'phone already': '该手机号已注册',
+      'invalid credentials': '手机号或密码错误',
+      'wrong password': '手机号或密码错误',
+      'not found': '手机号或密码错误',
     };
-  },
-  mounted() {
-    if (ChemAPI.isTokenValid()) {
-      window.location.href = 'parent.html';
+
+    function mapError(msg) {
+      if (!msg) return '操作失败，请重试';
+      var lower = msg.toLowerCase();
+      for (var key in ERROR_MAP) {
+        if (lower.indexOf(key) !== -1) return ERROR_MAP[key];
+      }
+      return msg;
     }
-  },
-  methods: {
-    async submit() {
-      this.error = '';
-      this.success = '';
-      this.fieldError = '';
 
-      if (!this.phone.trim()) {
-        this.fieldError = 'phone';
-        this.error = '请输入手机号';
+    onMounted(() => {
+      if (ChemAPI.isTokenValid()) {
+        window.location.href = 'parent.html';
+      }
+    });
+
+    async function submit() {
+      error.value = '';
+      success.value = '';
+      fieldError.value = '';
+
+      if (!phone.value.trim()) {
+        fieldError.value = 'phone';
+        error.value = '请输入手机号';
         return;
       }
-      if (!this.password) {
-        this.fieldError = 'password';
-        this.error = '请输入密码';
+      if (!password.value) {
+        fieldError.value = 'password';
+        error.value = '请输入密码';
         return;
       }
 
-      this.loading = true;
+      loading.value = true;
       try {
         let res;
-        if (this.bindCode) {
-          // 注册 + 绑定
+        if (mode.value === 'register') {
           res = await ChemAPI.post('/api/auth/parent/register', {
-            phone: this.phone.trim(),
-            password: this.password,
-            bind_code: this.bindCode,
+            phone: phone.value.trim(),
+            password: password.value,
+            bind_code: bindCode.value,
           });
         } else {
-          // 登录
           res = await ChemAPI.post('/api/auth/parent/login', {
-            phone: this.phone.trim(),
-            password: this.password,
+            phone: phone.value.trim(),
+            password: password.value,
           });
         }
 
@@ -230,13 +215,18 @@ createApp({
         ChemAPI.setToken(token);
         window.location.href = 'parent.html';
       } catch (e) {
-        this.error = e.message || '操作失败，请重试';
-        const form = this.$el.querySelector('.px-6');
-        if (form) { form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
+        error.value = mapError(e.message);
+        const el = document.querySelector('.login-form');
+        if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
       } finally {
-        this.loading = false;
+        loading.value = false;
       }
-    },
+    }
+
+    return {
+      phone, password, bindCode, mode, showPwd, loading, error, success, fieldError,
+      submit,
+    };
   },
 }).mount('#app');
 </script>

@@ -11,31 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0&display=swap" rel="stylesheet"/>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="tailwind-config.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script>
-tailwind.config = {
-  theme: { extend: {
-    colors: {
-      "oxford-blue": "#002147", "oxford-hover": "#001a38",
-      "teal-accent": "#0d7377", "teal-hover": "#0a5c5f",
-      "warm-paper": "#faf8f5", "warm-bg": "#f5f0e8",
-      "text-primary": "#1a1a2e", "text-secondary": "#6b7280",
-      "error-red": "#b43c28", "pass-green": "#2c6e49",
-      "purple-bar": "#7B2D8E", "blue-bar": "#3B5BA5", "cyan-bar": "#00897B",
-    },
-    fontFamily: {
-      "headline": ["Cormorant Garamond", "serif"],
-      "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
-    },
-  } },
-}
-</script>
 
 <style>
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
-body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
-
-.app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; }
 
 /* Tab 切换 */
 .tab-btn { flex:1; border-bottom: 2px solid transparent; color: #6b7280; font-size: 14px; transition: all .2s; }
@@ -115,7 +95,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
     </div>
 
     <!-- 加载态 -->
-    <div v-if="loading && children.length" class="px-4 py-4">
+    <div v-if="loading" class="px-4 py-4">
       <div class="grid grid-cols-2 gap-3">
         <div class="skeleton-block h-24 rounded-lg"></div>
         <div class="skeleton-block h-24 rounded-lg"></div>
@@ -262,8 +242,8 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
           <!-- 未读点 -->
           <span v-if="!n.read" class="absolute left-4 top-7 h-1.5 w-1.5 rounded-full bg-blue-bar"></span>
           <!-- 图标 -->
-          <span class="absolute left-7 top-5 flex h-7 w-7 items-center justify-center rounded-full" :class="notifIconBg(n.type)">
-            <span class="material-symbols-outlined text-sm" :class="notifIconColor(n.type)">{{ notifIcon(n.type) }}</span>
+          <span class="absolute left-7 top-5 flex h-7 w-7 items-center justify-center rounded-full" :class="notifStyle(n.type).bg">
+            <span class="material-symbols-outlined text-sm" :class="notifStyle(n.type).color">{{ notifStyle(n.type).icon }}</span>
           </span>
           <!-- 内容 -->
           <div class="flex items-start gap-2 pl-16">
@@ -278,7 +258,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
               <p class="mt-1 text-sm text-text-secondary truncate">{{ n.content }}</p>
               <div class="accordion-body" :class="{ open: expandedNotif === n.id }">
                 <hr class="my-2 border-gray-100"/>
-                <p class="text-sm text-gray-600 leading-relaxed">{{ n.content }}</p>
+                <p class="text-sm text-gray-600 leading-relaxed">{{ n.detail || n.content }}</p>
               </div>
             </div>
           </div>
@@ -293,7 +273,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 
       <!-- 加载更多 -->
       <div v-if="notifications.length < notifTotal" class="px-4 py-4 text-center">
-        <button class="h-9 px-6 rounded-lg border border-gray-200 text-sm text-text-secondary hover:bg-gray-50" @click="loadMoreNotif">加载更多</button>
+        <button class="h-9 px-6 rounded-lg border border-gray-200 text-sm text-text-secondary hover:bg-gray-50" @click="loadNotif(true)">加载更多</button>
       </div>
     </section>
   </main>
@@ -382,7 +362,7 @@ body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
 
 <script src="parent-common.js"></script>
 <script>
-const { createApp, ref, reactive, computed, watch, nextTick, onMounted } = Vue;
+const { createApp, ref, computed, nextTick, onMounted } = Vue;
 
 createApp({
   setup() {
@@ -472,25 +452,20 @@ createApp({
       }
     }
 
-    async function loadNotif() {
+    async function loadNotif(append) {
+      var page = append ? notifPage.value + 1 : notifPage.value;
       try {
-        const res = await ChemAPI.get('/api/parent/notifications?page=' + notifPage.value + '&page_size=20');
+        const res = await ChemAPI.get('/api/parent/notifications?page=' + page + '&page_size=20');
         const data = res.data || {};
-        notifications.value = data.notifications || [];
-        notifTotal.value = data.total || 0;
+        if (append) {
+          notifPage.value = page;
+          notifications.value.push(...(data.notifications || []));
+        } else {
+          notifications.value = data.notifications || [];
+          notifTotal.value = data.total || 0;
+        }
       } catch (e) {
         console.error('加载通知失败:', e);
-      }
-    }
-
-    async function loadMoreNotif() {
-      notifPage.value++;
-      try {
-        const res = await ChemAPI.get('/api/parent/notifications?page=' + notifPage.value + '&page_size=20');
-        const data = res.data || {};
-        notifications.value.push(...(data.notifications || []));
-      } catch (e) {
-        notifPage.value--;
       }
     }
 
@@ -606,18 +581,14 @@ createApp({
     }
 
     // ── 通知图标映射 ──
-    function notifIcon(type) {
-      const map = { weekly_report: 'description', score_alert: 'warning', reminder: 'event', daily_report: 'assignment' };
-      return map[type] || 'notifications';
-    }
-    function notifIconBg(type) {
-      const map = { weekly_report: 'bg-blue-50', score_alert: 'bg-red-50', reminder: 'bg-blue-50', daily_report: 'bg-gray-100' };
-      return map[type] || 'bg-gray-100';
-    }
-    function notifIconColor(type) {
-      const map = { weekly_report: 'text-blue-bar', score_alert: 'text-error-red', reminder: 'text-blue-bar', daily_report: 'text-text-secondary' };
-      return map[type] || 'text-text-secondary';
-    }
+    const NOTIF_STYLES = {
+      weekly_report: { icon: 'description', bg: 'bg-blue-50', color: 'text-blue-bar' },
+      score_alert:   { icon: 'warning',     bg: 'bg-red-50',  color: 'text-error-red' },
+      reminder:      { icon: 'event',       bg: 'bg-blue-50', color: 'text-blue-bar' },
+      daily_report:  { icon: 'assignment',  bg: 'bg-gray-100',color: 'text-text-secondary' },
+    };
+    const NOTIF_DEFAULT = { icon: 'notifications', bg: 'bg-gray-100', color: 'text-text-secondary' };
+    function notifStyle(type) { return NOTIF_STYLES[type] || NOTIF_DEFAULT; }
 
     // ── 初始化 ──
     onMounted(async () => {
@@ -634,10 +605,10 @@ createApp({
       expandedNotif,
       currentChild, unreadCount, weeklyReport,
       logout, switchTab, prevChild, nextChild,
-      loadData, loadNotif, loadMoreNotif, toggleNotif, markRead, markAllRead,
+      loadData, loadNotif, toggleNotif, markRead, markAllRead,
       bindChild, generateReport,
       sendAiPreset, sendAiMessage,
-      notifIcon, notifIconBg, notifIconColor,
+      notifStyle,
       ChemUI,
     };
   },

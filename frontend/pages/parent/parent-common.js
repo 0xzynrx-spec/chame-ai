@@ -42,13 +42,13 @@
   }
 
   function parentId() {
-    var p = decodeJwt(getToken());
-    return (p && p.entity_id) || null;
+    var payload = decodeJwt(getToken());
+    return (payload && payload.entity_id) || null;
   }
 
   function role() {
-    var p = decodeJwt(getToken());
-    return (p && p.role) || null;
+    var payload = decodeJwt(getToken());
+    return (payload && payload.role) || null;
   }
 
   function _redirectToLogin() {
@@ -85,8 +85,8 @@
     return fetch(API_BASE + path, options).then(function (res) {
       return res.json().catch(function () { return null; }).then(function (body) {
         if (!res.ok) {
-          var d = body && body.detail;
-          var msg = typeof d === 'string' ? d : (d && d.detail) || ('请求失败 (' + res.status + ')');
+          var detail = body && body.detail;
+          var msg = typeof detail === 'string' ? detail : (detail && detail.detail) || ('请求失败 (' + res.status + ')');
           var err = new Error(msg);
           err.status = res.status;
           if (res.status === 401 || res.status === 403) {
@@ -123,6 +123,9 @@
     if (_stylesInjected) return;
     _stylesInjected = true;
     var css = [
+      '.material-symbols-outlined{font-variation-settings:\'FILL\' 0,\'wght\' 400,\'GRAD\' 0,\'opsz\' 24}',
+      'body{font-family:"IBM Plex Sans","Noto Sans SC",sans-serif}',
+      '.app{max-width:430px;margin:0 auto;min-height:100dvh;position:relative;background:#faf8f5}',
       '@keyframes skeleton-pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }',
       '.skeleton{background:#e5e7eb;border-radius:6px;animation:skeleton-pulse 1.5s ease infinite}',
       '@keyframes card-in{from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)}}',
@@ -155,32 +158,11 @@
     }, 2500);
   }
 
-  function fmtTime(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    if (isNaN(d)) return '';
-    return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
-      d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
-  }
-
   function fmtDate(iso) {
     if (!iso) return '';
     var d = new Date(iso);
     if (isNaN(d)) return '';
     return (d.getMonth() + 1) + '月' + d.getDate() + '日';
-  }
-
-  function animateNumber(el, target, duration) {
-    if (!el || target <= 0) { if (el) el.textContent = '0'; return; }
-    duration = duration || 600;
-    var start = performance.now();
-    function tick(now) {
-      var progress = Math.min((now - start) / duration, 1);
-      var ease = 1 - Math.pow(1 - progress, 3);
-      el.textContent = Math.round(ease * target);
-      if (progress < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -261,9 +243,7 @@
 
   window.ChemUI = {
     showToast: showToast,
-    fmtTime: fmtTime,
     fmtDate: fmtDate,
-    animateNumber: animateNumber,
     createSSEClient: createSSEClient,
   };
 
