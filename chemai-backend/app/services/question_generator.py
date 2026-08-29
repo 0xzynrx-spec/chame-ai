@@ -6,6 +6,9 @@ LLM prompt 构建逻辑：根据知识点、难度、题型参数构造出题提
 
 from typing import Optional
 
+from app.models import AuditStatus, Difficulty, Question, QuestionSource, QuestionType
+from app.services.audit_engine import get_audit_engine
+
 
 def build_generation_prompt(
     question_types: str = "choice:3",
@@ -85,3 +88,49 @@ def estimate_token_count(prompt: str) -> int:
     chinese_chars = sum(1 for c in prompt if "一" <= c <= "鿿")
     other_chars = len(prompt) - chinese_chars
     return int(chinese_chars * 1.5 + other_chars * 0.3)
+
+
+def _contains_equation(text: str) -> bool:
+    """检查文本中是否包含化学方程式"""
+    return any(sep in text for sep in ["->", "→", "="])
+
+
+def persist_generated_question(db, item: dict, teacher_id: str) -> Question | None:
+    """将 LLM 生成的单题规范化为 Question 并入库（走四维审核）
+
+    Args:
+        db: SQLAlchemy 会话
+        item: llm_service 生成的题目 dict（type/difficulty/content/options/
+              answer/analysis/knowledge_points）
+        teacher_id: 创建者教师 ID
+
+    Returns:
+        入库的 Question；审核 blocked 时返回 None（调用方丢弃/降级）
+    """
+    content = item["content"]
+
+    audit_report = None
+    audit_status = AuditStatus.PASSED
+    if _contains_equation(content):
+        report = get_audit_engine().audit_equation(content)
+        audit_report = report.model_dump()
+        if report.overall_status == "blocked":
+            return None
+        audit_status = AuditStatus.PASSED if report.overall_status == "passed" else AuditStatus.WARNING
+
+    question = Question(
+        type=QuestionType(item["type"]),
+        difficulty=Difficulty(item["difficulty"]),
+        content_i18n={"zh": content},
+        options_i18n={"zh": item["options"]} if item.get("options") else None,
+        answer_i18n={"zh": item["answer"]},
+        analysis_i18n={"zh": item["analysis"]} if item.get("analysis") else None,
+        knowledge_points=item["knowledge_points"],
+        source=QuestionSource.AI_GENERATED,
+        audit_status=audit_status,
+        audit_report=audit_report,
+        created_by=teacher_id,
+    )
+    db.add(question)
+    db.flush()
+    return question

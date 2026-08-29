@@ -18,7 +18,14 @@ def create_app() -> FastAPI:
     )
 
     # ── 全局中间件 ──────────────────────────────
-    # 1. CORS 中间件（最外层，处理预检请求）
+    # Starlette 的 add_middleware 后添加者位于外层。CORS 必须处于最外层，
+    # 这样 JWT 认证中间件短路返回的 401 等错误响应也会带上跨域头，
+    # 否则浏览器会把跨域未授权请求误报为 CORS 失败（Failed to fetch）。
+    # 1. JWT 认证中间件（内层，负责鉴权）
+    from app.middleware.auth import JWTAuthMiddleware
+    app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
+
+    # 2. CORS 中间件（最外层，处理预检并为所有响应附加跨域头）
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -27,12 +34,30 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # 2. JWT 认证中间件（CORS 处理后执行）
-    from app.middleware.auth import JWTAuthMiddleware
-    app.add_middleware(JWTAuthMiddleware, whitelist=settings.auth_whitelist)
-
     # ── 注册路由 ────────────────────────────────
-    from app.api import auth_router, audit_router, diagnosis_router, exams_router, historical_exams_router, question_sets_router, questions_router, search_router, users_router
+    from app.api import (
+        audit_router,
+        auth_router,
+        classes_router,
+        diagnosis_router,
+        exams_router,
+        grading_router,
+        historical_exams_router,
+        ocr_router,
+        panel_router,
+        practice_router,
+        question_sets_router,
+        questions_router,
+        review_router,
+        search_router,
+        student_router,
+        users_router,
+        warning_router,
+        wrong_router,
+        parent_auth_router,
+        parent_router,
+        chat_router,
+    )
 
     app.include_router(auth_router)
     app.include_router(users_router)
@@ -43,6 +68,18 @@ def create_app() -> FastAPI:
     app.include_router(historical_exams_router)
     app.include_router(search_router)
     app.include_router(diagnosis_router)
+    app.include_router(practice_router)
+    app.include_router(review_router)
+    app.include_router(wrong_router)
+    app.include_router(panel_router)
+    app.include_router(warning_router)
+    app.include_router(classes_router)
+    app.include_router(ocr_router)
+    app.include_router(grading_router)
+    app.include_router(student_router)
+    app.include_router(parent_auth_router)
+    app.include_router(parent_router)
+    app.include_router(chat_router)
 
     # ── 启动事件 ────────────────────────────────
     @app.on_event("startup")
@@ -70,6 +107,25 @@ def create_app() -> FastAPI:
                 print("[WARN] ChromaDB 向量检索服务不可用，语义搜索功能将不可用")
         except ImportError:
             print("[WARN] ChromaDB 未安装或版本不兼容，语义搜索功能将不可用")
+
+    # ── 定时任务调度器 ────────────────────────────────
+    scheduler = None
+
+    @app.on_event("startup")
+    async def startup_scheduler():
+        """启动 BackgroundScheduler，注册学情预警检查任务"""
+        nonlocal scheduler
+        from app.services.scheduler import create_scheduler, start_scheduler
+        scheduler = create_scheduler()
+        start_scheduler(scheduler)
+
+    @app.on_event("shutdown")
+    async def shutdown_scheduler():
+        """应用关闭时优雅终止调度器"""
+        nonlocal scheduler
+        if scheduler is not None:
+            from app.services.scheduler import shutdown_scheduler
+            shutdown_scheduler(scheduler)
 
     # ── 健康检查 ────────────────────────────────
     @app.get("/health")

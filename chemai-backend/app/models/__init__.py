@@ -23,10 +23,24 @@ from app.models.historical_exam import HistoricalExam
 from app.models.exam import Exam, ExamQuestionSet, ExamStatus
 from app.models.diagnosis import (
     BarrierType,
+    RecordType,
     ExamRecord,
     StudentAnswer,
     BarrierConfig,
     DiagnosisOverride,
+)
+from app.models.review import ReviewTask, ReviewStatus
+from app.models.warning import WarningLog, WarningType, WarningLevel, WarningStatus
+from app.models.parent_notification import ParentNotification, NotificationType, RelationType
+from app.models.weekly_report import WeeklyReport
+from app.models.ocr import (
+    UploadSession,
+    UploadSessionStatus,
+    InvalidStateTransitionError,
+    OCRTask,
+    OCRTaskStatus,
+    GradingResult,
+    Judgment,
 )
 
 __all__ = [
@@ -54,8 +68,26 @@ __all__ = [
     "ExamQuestionSet",
     "ExamStatus",
     "BarrierType",
+    "RecordType",
     "ExamRecord",
     "StudentAnswer",
     "BarrierConfig",
     "DiagnosisOverride",
+    "ReviewTask",
+    "ReviewStatus",
+    "WarningLog",
+    "WarningType",
+    "WarningLevel",
+    "WarningStatus",
+    "UploadSession",
+    "UploadSessionStatus",
+    "InvalidStateTransitionError",
+    "OCRTask",
+    "OCRTaskStatus",
+    "GradingResult",
+    "Judgment",
+    "ParentNotification",
+    "NotificationType",
+    "RelationType",
+    "WeeklyReport",
 ]

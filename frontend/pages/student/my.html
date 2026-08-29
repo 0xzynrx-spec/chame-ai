@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>我的 — ChemAI 智辅化学</title>
+
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      "oxford-blue": "#002147", "oxford-hover": "#001a38",
+      "teal-accent": "#0d7377", "teal-hover": "#0a5c5f",
+      "warm-paper": "#faf8f5", "warm-bg": "#f5f0e8",
+      "text-primary": "#1a1a2e", "text-secondary": "#6b7280",
+      "error-red": "#b43c28", "pass-green": "#2c6e49",
+    },
+    fontFamily: {
+      "headline": ["Cormorant Garamond", "serif"],
+      "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
+      "chem": ["JetBrains Mono", "IBM Plex Mono", "monospace"],
+    },
+  } },
+}
+</script>
+
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
+.app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; }
+
+/* 底部弹层 */
+.sheet-mask { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { width: 100%; max-width: 430px; max-height: 82%; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 16px 16px 24px; }
+
+/* 条形图 */
+.bar-track { height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+</style>
+</head>
+<body class="bg-warm-bg text-text-primary">
+<div class="app" id="app">
+  <header class="h-14 flex items-center justify-center px-4 bg-oxford-blue text-white sticky top-0 z-10">
+    <h1 class="text-base font-semibold">我的</h1>
+  </header>
+
+  <main ref="main">
+    <!-- 加载态：骨架屏 -->
+    <template v-if="loading">
+      <div class="p-4">
+        <div class="bg-white rounded-xl p-5 border border-black/5 flex items-center gap-4">
+          <div class="w-16 h-16 rounded-full skeleton"></div>
+          <div class="flex-1"><div class="h-4 w-24 skeleton mb-2"></div><div class="h-3 w-32 skeleton"></div></div>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-12 skeleton mb-2"></div><div class="h-6 w-8 skeleton"></div></div>
+          <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-12 skeleton mb-2"></div><div class="h-6 w-8 skeleton"></div></div>
+          <div class="flex-1 bg-white rounded-lg p-4 border border-black/5"><div class="h-3 w-12 skeleton mb-2"></div><div class="h-6 w-8 skeleton"></div></div>
+        </div>
+      </div>
+    </template>
+
+    <!-- 错误态 -->
+    <div v-else-if="error" class="p-8 text-center">
+      <span class="material-symbols-outlined text-4xl text-error-red">error_outline</span>
+      <p class="mt-3 text-sm text-error-red">{{ error }}</p>
+      <button class="mt-4 px-4 h-9 rounded-lg bg-oxford-blue text-white text-sm" @click="loadDashboard">点击重试</button>
+    </div>
+
+    <!-- 正常内容 -->
+    <template v-else>
+      <!-- 个人信息卡 -->
+      <div class="p-4 pb-0">
+        <div class="bg-white rounded-xl p-5 border border-black/5 card-animate flex items-center gap-4">
+          <div class="w-16 h-16 rounded-full bg-oxford-blue/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-3xl text-oxford-blue fill">person</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-base font-semibold truncate">{{ profile.name || '—' }}</div>
+            <div class="text-sm text-text-secondary mt-0.5">{{ profile.class_name || '未分班' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 学习统计 -->
+      <div class="flex gap-2 px-4 mt-3">
+        <div class="flex-1 bg-white rounded-lg p-3 text-center border border-black/5 card-animate" style="animation-delay:60ms">
+          <div class="text-xs text-text-secondary">练习次数</div>
+          <div class="text-2xl font-bold text-oxford-blue mt-1" ref="statPractice">0</div>
+        </div>
+        <div class="flex-1 bg-white rounded-lg p-3 text-center border border-black/5 card-animate" style="animation-delay:120ms">
+          <div class="text-xs text-text-secondary">待复习</div>
+          <div class="text-2xl font-bold text-teal-accent mt-1" ref="statReview">0</div>
+        </div>
+        <div class="flex-1 bg-white rounded-lg p-3 text-center border border-black/5 card-animate" style="animation-delay:180ms">
+          <div class="text-xs text-text-secondary">预警</div>
+          <div class="text-2xl font-bold text-error-red mt-1" ref="statWarning">0</div>
+        </div>
+      </div>
+
+      <!-- 障碍诊断摘要 -->
+      <div class="px-4 mt-3">
+        <div class="bg-white rounded-xl p-4 border border-black/5 card-animate" style="animation-delay:240ms">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-semibold">学习特点</span>
+            <span v-if="barrier.dominant_barrier" class="text-xs px-2 py-0.5 rounded-full bg-teal-accent/10 text-teal-accent font-medium">
+              {{ barrierLabel(barrier.dominant_barrier) }}
+            </span>
+          </div>
+          <template v-if="barrier.dominant_barrier">
+            <div class="space-y-2">
+              <div v-for="b in barrierBars" :key="b.key" class="flex items-center gap-2">
+                <span class="text-xs text-text-secondary w-10 shrink-0">{{ b.label }}</span>
+                <div class="bar-track flex-1"><div class="bar-fill" :style="{ width: b.pct + '%', background: b.color }"></div></div>
+                <span class="text-xs text-text-secondary w-10 text-right">{{ b.pct }}%</span>
+              </div>
+            </div>
+          </template>
+          <div v-else class="text-sm text-text-secondary text-center py-4">
+            完成练习后可查看学习特点
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近考试成绩 -->
+      <div class="px-4 mt-3">
+        <div class="bg-white rounded-xl p-4 border border-black/5 card-animate" style="animation-delay:300ms">
+          <div class="text-sm font-semibold mb-3">最近考试</div>
+          <div v-if="recentExams.length === 0" class="text-sm text-text-secondary text-center py-4">
+            暂无考试记录
+          </div>
+          <div v-else class="space-y-2">
+            <div v-for="e in recentExams" :key="e.exam_record_id" class="flex items-center justify-between py-1.5">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm truncate">{{ e.exam_name }}</div>
+                <div class="text-xs text-text-secondary">{{ fmtTime(e.taken_at) }}</div>
+              </div>
+              <div class="text-right shrink-0 ml-3">
+                <div class="text-sm font-semibold font-chem">{{ e.score }}<span class="text-text-secondary font-normal">/{{ e.total }}</span></div>
+                <div class="text-xs" :class="e.accuracy >= 60 ? 'text-pass-green' : 'text-error-red'">{{ e.accuracy }}%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 功能入口列表 -->
+      <div class="px-4 mt-3 mb-4">
+        <div class="bg-white rounded-xl border border-black/5 overflow-hidden card-animate" style="animation-delay:360ms">
+          <div v-for="(item, idx) in menuItems" :key="item.label"
+               class="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
+               :class="{ 'border-t border-gray-100': idx > 0 }"
+               @click="item.action">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-xl" :class="item.iconColor">{{ item.icon }}</span>
+              <span class="text-sm">{{ item.label }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span v-if="item.badge" class="min-w-5 h-5 px-1.5 rounded-full bg-error-red text-white text-xs flex items-center justify-center font-medium">{{ item.badge }}</span>
+              <span class="material-symbols-outlined text-lg text-text-secondary">chevron_right</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 退出登录 -->
+      <div class="px-4 mb-8">
+        <button class="w-full h-11 rounded-lg border border-gray-200 text-sm text-text-secondary hover:bg-gray-50 transition-colors"
+                @click="doLogout">退出登录</button>
+      </div>
+    </template>
+  </main>
+
+  <!-- 学习报告弹窗 -->
+  <div v-if="reportSheet" class="sheet-mask" @click.self="reportSheet = false">
+    <div class="sheet">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-base font-semibold">学习报告</div>
+        <button class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center" @click="reportSheet = false">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+      <div v-if="reportLoading" class="py-8 text-center text-sm text-text-secondary">
+        <svg class="animate-spin h-5 w-5 mx-auto mb-2 text-teal-accent" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        正在生成报告…
+      </div>
+      <div v-else-if="reportError" class="py-6 text-center">
+        <p class="text-sm text-error-red">{{ reportError }}</p>
+        <button class="mt-3 px-4 h-9 rounded-lg bg-teal-accent text-white text-sm" @click="loadReport">点击重试</button>
+      </div>
+      <div v-else class="text-sm leading-relaxed text-text-primary whitespace-pre-line">{{ reportContent }}</div>
+    </div>
+  </div>
+
+  <!-- 学习计划弹窗 -->
+  <div v-if="planSheet" class="sheet-mask" @click.self="planSheet = false">
+    <div class="sheet">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-base font-semibold">学习计划</div>
+        <button class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center" @click="planSheet = false">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+      <div v-if="planLoading" class="py-8 text-center text-sm text-text-secondary">
+        <svg class="animate-spin h-5 w-5 mx-auto mb-2 text-teal-accent" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        正在加载计划…
+      </div>
+      <div v-else-if="planError" class="py-6 text-center">
+        <p class="text-sm text-error-red">{{ planError }}</p>
+      </div>
+      <div v-else-if="!planContent" class="py-8 text-center text-sm text-text-secondary">
+        暂无学习计划，老师布置后会出现在这里
+      </div>
+      <div v-else class="text-sm leading-relaxed text-text-primary whitespace-pre-line">{{ planContent }}</div>
+    </div>
+  </div>
+
+  <!-- 家长绑定弹窗 -->
+  <div v-if="bindingSheet" class="sheet-mask" @click.self="bindingSheet = false">
+    <div class="sheet">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-base font-semibold">家长绑定</div>
+        <button class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center" @click="bindingSheet = false">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+      <div v-if="bindingLoading" class="py-8 text-center text-sm text-text-secondary">
+        <svg class="animate-spin h-5 w-5 mx-auto mb-2 text-teal-accent" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        正在加载…
+      </div>
+      <div v-else-if="bindingError" class="py-6 text-center">
+        <p class="text-sm text-error-red">{{ bindingError }}</p>
+        <button class="mt-3 px-4 h-9 rounded-lg bg-teal-accent text-white text-sm" @click="loadBinding">点击重试</button>
+      </div>
+      <div v-else>
+        <!-- 绑定码 -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+          <div class="text-xs text-text-secondary mb-2">您的绑定码</div>
+          <div class="flex items-center justify-between">
+            <div class="text-2xl font-bold font-chem tracking-wider text-oxford-blue">{{ bindCode }}</div>
+            <button class="px-3 h-8 rounded-lg bg-teal-accent text-white text-xs" @click="copyBindCode">复制</button>
+          </div>
+          <div class="text-xs text-text-secondary mt-2">将此绑定码分享给家长，用于绑定您的学习数据</div>
+        </div>
+
+        <!-- 已绑定家长列表 -->
+        <div class="text-sm font-semibold mb-2">已绑定家长</div>
+        <div v-if="boundParents.length === 0" class="text-sm text-text-secondary text-center py-4">
+          暂无绑定家长
+        </div>
+        <div v-else class="space-y-2">
+          <div v-for="p in boundParents" :key="p.id" class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+            <div>
+              <div class="text-sm font-medium">{{ p.name }}</div>
+              <div class="text-xs text-text-secondary">{{ p.relation_type }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav"></nav>
+</div>
+
+<script src="common.js"></script>
+<script>
+const { createApp } = Vue;
+createApp({
+  data() {
+    return {
+      loading: true,
+      error: '',
+      profile: { student_id: '', name: '', class_name: '', total_practice_count: 0 },
+      barrier: { dominant_barrier: null, barrier_concept_rate: 0, barrier_reading_rate: 0, barrier_expression_rate: 0 },
+      recentExams: [],
+      reviewDueCount: 0,
+      warningCount: 0,
+
+      // 弹窗
+      reportSheet: false, reportLoading: false, reportError: '', reportContent: '',
+      planSheet: false, planLoading: false, planError: '', planContent: '',
+      bindingSheet: false, bindingLoading: false, bindingError: '', bindCode: '', boundParents: [],
+    };
+  },
+  computed: {
+    barrierBars() {
+      return [
+        { key: 'concept', label: '概念', pct: Math.round(this.barrier.barrier_concept_rate * 100), color: '#7c3aed' },
+        { key: 'reading', label: '审题', pct: Math.round(this.barrier.barrier_reading_rate * 100), color: '#1e40af' },
+        { key: 'expression', label: '表述', pct: Math.round(this.barrier.barrier_expression_rate * 100), color: '#0d7377' },
+      ];
+    },
+    menuItems() {
+      const sid = ChemAPI.studentId();
+      return [
+        { icon: 'summarize', iconColor: 'text-teal-accent', label: '学习报告', badge: 0, action: () => this.openReport() },
+        { icon: 'event_note', iconColor: 'text-oxford-blue', label: '学习计划', badge: 0, action: () => this.openPlan() },
+        { icon: 'fact_check', iconColor: 'text-error-red', label: '我的错题本', badge: 0, action: () => { window.location.href = 'wrong.html'; } },
+        { icon: 'auto_stories', iconColor: 'text-teal-accent', label: '复习中心', badge: this.reviewDueCount || 0, action: () => { window.location.href = 'review.html'; } },
+        { icon: 'family_link', iconColor: 'text-oxford-blue', label: '家长绑定', badge: 0, action: () => this.openBinding() },
+        { icon: 'settings', iconColor: 'text-text-secondary', label: '个人设置', badge: 0, action: () => ChemUI.showToast('个人设置功能开发中', 'info') },
+      ];
+    },
+  },
+  async mounted() {
+    if (!ChemAPI.authGuard()) return;
+    ChemUI.renderTabBar('my');
+    await this.loadDashboard();
+  },
+  methods: {
+    barrierLabel(key) {
+      return { concept: '概念理解薄弱', reading: '审题能力薄弱', expression: '表述能力薄弱' }[key] || '';
+    },
+    fmtTime(iso) { return ChemUI.fmtTime(iso); },
+    async loadDashboard() {
+      this.loading = true; this.error = '';
+      try {
+        const sid = ChemAPI.studentId();
+        if (!sid) { this.error = '无法获取学生信息'; return; }
+        const res = await ChemAPI.get(`/api/student/${sid}/dashboard`);
+        const d = res.data;
+        this.profile = d.profile || {};
+        this.barrier = d.barrier || {};
+        this.recentExams = d.recent_exams || [];
+        this.reviewDueCount = d.review_due_count || 0;
+        this.warningCount = d.warning_count || 0;
+        // 数字跳动动画
+        this.$nextTick(() => {
+          ChemUI.animateNumber(this.$refs.statPractice, this.profile.total_practice_count || 0);
+          ChemUI.animateNumber(this.$refs.statReview, this.reviewDueCount);
+          ChemUI.animateNumber(this.$refs.statWarning, this.warningCount);
+        });
+      } catch (e) {
+        this.error = e.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async openReport() {
+      this.reportSheet = true;
+      this.reportLoading = true; this.reportError = ''; this.reportContent = '';
+      try {
+        const sid = ChemAPI.studentId();
+        const res = await ChemAPI.get(`/api/student/${sid}/report`);
+        this.reportContent = (res && res.data && res.data.content) || '暂无学习报告';
+      } catch (e) {
+        // 如果 API 不存在，显示友好提示
+        this.reportError = '学习报告功能即将上线，敬请期待';
+      } finally {
+        this.reportLoading = false;
+      }
+    },
+    async openPlan() {
+      this.planSheet = true;
+      this.planLoading = true; this.planError = ''; this.planContent = '';
+      try {
+        const sid = ChemAPI.studentId();
+        const res = await ChemAPI.get(`/api/student/${sid}/plan`);
+        this.planContent = (res && res.data && res.data.content) || '';
+      } catch (e) {
+        this.planError = '学习计划功能即将上线';
+      } finally {
+        this.planLoading = false;
+      }
+    },
+    doLogout() {
+      ChemAPI.logout();
+    },
+    async openBinding() {
+      this.bindingSheet = true;
+      await this.loadBinding();
+    },
+    async loadBinding() {
+      this.bindingLoading = true; this.bindingError = '';
+      try {
+        const [codeRes, parentsRes] = await Promise.all([
+          ChemAPI.get('/api/student/bind-code'),
+          ChemAPI.get('/api/student/parents'),
+        ]);
+        this.bindCode = (codeRes && codeRes.data && codeRes.data.bind_code) || '';
+        this.boundParents = (parentsRes && parentsRes.data) || [];
+      } catch (e) {
+        this.bindingError = e.message;
+      } finally {
+        this.bindingLoading = false;
+      }
+    },
+    async copyBindCode() {
+      try {
+        await navigator.clipboard.writeText(this.bindCode);
+        ChemUI.showToast('绑定码已复制', 'success');
+      } catch (e) {
+        ChemUI.showToast('复制失败，请手动复制', 'error');
+      }
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

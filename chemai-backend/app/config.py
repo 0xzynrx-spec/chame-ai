@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7  # 7 天
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "null"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:5500", "http://localhost:8888", "null"]
 
     # 认证白名单（跳过 JWT 中间件的路径前缀）
     auth_whitelist: list[str] = [
@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # LLM（通义千问 DashScope）
     dashscope_api_key: str = ""
     dashscope_model: str = "qwen-plus"
+
+    # OCR（百度智能云）
+    baidu_ocr_api_key: str = ""
+    baidu_ocr_secret_key: str = ""
+    ocr_sheet_provider: str = "baidu"
+    ocr_confidence_threshold: float = 0.6
 
     model_config = {"env_prefix": "CHEMAI_", "env_file": ".env", "extra": "ignore"}
 

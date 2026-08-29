@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>登录 — ChemAI 家长端</title>
+
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="tailwind-config.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<style>
+input:focus { outline: none; border-color: #0d7377; box-shadow: 0 0 0 2px rgba(13,115,119,.15); }
+input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.shake { animation: shake .4s ease; }
+
+.bind-code-input {
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+</style>
+</head>
+<body class="bg-warm-bg text-text-primary">
+<div class="app" id="app">
+
+  <!-- Logo 区 -->
+  <div class="flex flex-col items-center pt-16 pb-8">
+    <div class="w-16 h-16 rounded-2xl bg-oxford-blue flex items-center justify-center mb-4">
+      <span class="material-symbols-outlined text-white text-3xl">science</span>
+    </div>
+    <h1 class="font-headline text-2xl font-semibold text-oxford-blue flex items-center gap-2">
+      ChemAI 智辅化学
+      <span class="inline-block rounded-full bg-teal-accent px-2.5 py-0.5 text-xs font-medium text-white">家长端</span>
+    </h1>
+    <p class="text-sm text-text-secondary mt-2">使用手机号和密码登录，查看孩子的学习情况</p>
+  </div>
+
+  <!-- 表单区 -->
+  <div class="login-form px-6">
+    <!-- 错误提示 -->
+    <div v-if="error" class="mb-4 p-3 rounded-lg bg-red-50 text-sm text-error-red text-center">
+      {{ error }}
+    </div>
+
+    <!-- 成功提示 -->
+    <div v-if="success" class="mb-4 p-3 rounded-lg bg-green-50 text-sm text-pass-green text-center">
+      {{ success }}
+    </div>
+
+    <!-- 手机号 -->
+    <div class="mb-4">
+      <label class="block text-xs text-text-secondary mb-1.5">手机号</label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">smartphone</span>
+        <input v-model="phone" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入手机号"
+               class="w-full h-12 pl-10 pr-4 rounded-lg border border-gray-200 bg-white text-sm"
+               :class="{ error: fieldError === 'phone' }"
+               @keyup.enter="submit"/>
+      </div>
+    </div>
+
+    <!-- 密码 -->
+    <div class="mb-4">
+      <label class="block text-xs text-text-secondary mb-1.5">密码</label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">lock</span>
+        <input v-model="password" :type="showPwd ? 'text' : 'password'" placeholder="请输入密码"
+               class="w-full h-12 pl-10 pr-12 rounded-lg border border-gray-200 bg-white text-sm"
+               :class="{ error: fieldError === 'password' }"
+               @keyup.enter="submit"/>
+        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary"
+                @click="showPwd = !showPwd">
+          <span class="material-symbols-outlined text-xl">{{ showPwd ? 'visibility_off' : 'visibility' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 绑定码（注册模式时显示） -->
+    <div v-if="mode === 'register'" class="mb-4">
+      <label class="block text-xs text-text-secondary mb-1.5">
+        绑定码
+        <span class="text-text-secondary font-normal">（首次登录必填）</span>
+      </label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">key</span>
+        <input v-model="bindCode" type="text" inputmode="numeric" maxlength="6" placeholder="6位数字绑定码"
+               class="w-full h-12 pl-10 pr-4 rounded-lg border border-gray-200 bg-white text-sm bind-code-input"
+               :class="{ error: fieldError === 'bindCode' }"
+               @input="bindCode = bindCode.replace(/\D/g, '').slice(0, 6)"
+               @keyup.enter="submit"/>
+      </div>
+    </div>
+
+    <!-- 绑定码说明卡片 -->
+    <div v-if="mode === 'register'" class="mb-6 rounded-lg bg-blue-50 p-3 flex items-start gap-2">
+      <span class="material-symbols-outlined text-blue-500 text-lg mt-0.5">info</span>
+      <div>
+        <p class="text-sm font-medium text-blue-800">什么是绑定码？</p>
+        <p class="text-xs text-blue-600 mt-1 leading-relaxed">绑定码是 6 位数字，用于关联您和孩子的账号。请让孩子在 ChemAI App 的"我的"页面中查看绑定码。</p>
+      </div>
+    </div>
+
+    <!-- 登录按钮 -->
+    <button class="w-full h-12 rounded-lg text-white font-semibold text-sm transition-colors"
+            :class="loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-oxford-blue hover:bg-oxford-hover'"
+            :disabled="loading"
+            @click="submit">
+      <span v-if="loading" class="flex items-center justify-center gap-2">
+        <svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        {{ mode === 'register' ? '注册中…' : '登录中…' }}
+      </span>
+      <span v-else>{{ mode === 'register' ? '注册并绑定' : '登 录' }}</span>
+    </button>
+
+    <!-- 底部提示 -->
+    <p class="mt-4 text-center text-xs text-text-secondary">
+      <span v-if="mode === 'login'" class="text-teal-accent cursor-pointer" @click="mode = 'register'">首次使用？填写绑定码注册</span>
+      <span v-else class="text-teal-accent cursor-pointer" @click="mode = 'login'">已有账号？直接登录</span>
+    </p>
+  </div>
+
+  <!-- 版本号 -->
+  <div class="absolute bottom-6 left-0 right-0 text-center">
+    <p class="text-xs text-gray-300">ChemAI v0.1.0</p>
+  </div>
+</div>
+
+<script src="parent-common.js"></script>
+<script>
+const { createApp, ref, onMounted } = Vue;
+createApp({
+  setup() {
+    const phone = ref('');
+    const password = ref('');
+    const bindCode = ref('');
+    const mode = ref('login');
+    const showPwd = ref(false);
+    const loading = ref(false);
+    const error = ref('');
+    const success = ref('');
+    const fieldError = ref('');
+
+    // 客户端错误映射：后端消息 → spec 要求的提示文案
+    const ERROR_MAP = {
+      'bind_code': '绑定码错误',
+      'already registered': '该手机号已注册',
+      'phone already': '该手机号已注册',
+      'invalid credentials': '手机号或密码错误',
+      'wrong password': '手机号或密码错误',
+      'not found': '手机号或密码错误',
+    };
+
+    function mapError(msg) {
+      if (!msg) return '操作失败，请重试';
+      var lower = msg.toLowerCase();
+      for (var key in ERROR_MAP) {
+        if (lower.indexOf(key) !== -1) return ERROR_MAP[key];
+      }
+      return msg;
+    }
+
+    onMounted(() => {
+      if (ChemAPI.isTokenValid()) {
+        window.location.href = 'parent.html';
+      }
+    });
+
+    async function submit() {
+      error.value = '';
+      success.value = '';
+      fieldError.value = '';
+
+      if (!phone.value.trim()) {
+        fieldError.value = 'phone';
+        error.value = '请输入手机号';
+        return;
+      }
+      if (!password.value) {
+        fieldError.value = 'password';
+        error.value = '请输入密码';
+        return;
+      }
+
+      loading.value = true;
+      try {
+        let res;
+        if (mode.value === 'register') {
+          res = await ChemAPI.post('/api/auth/parent/register', {
+            phone: phone.value.trim(),
+            password: password.value,
+            bind_code: bindCode.value,
+          });
+        } else {
+          res = await ChemAPI.post('/api/auth/parent/login', {
+            phone: phone.value.trim(),
+            password: password.value,
+          });
+        }
+
+        const token = res.data && res.data.access_token;
+        if (!token) throw new Error('响应缺少 token');
+        ChemAPI.setToken(token);
+        window.location.href = 'parent.html';
+      } catch (e) {
+        error.value = mapError(e.message);
+        const el = document.querySelector('.login-form');
+        if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+      } finally {
+        loading.value = false;
+      }
+    }
+
+    return {
+      phone, password, bindCode, mode, showPwd, loading, error, success, fieldError,
+      submit,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

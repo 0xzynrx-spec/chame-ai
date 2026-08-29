@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>班级学情面板 — ChemAI 智辅化学</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<!-- Tailwind Configuration — ChemAI Design System -->
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        "oxford-blue": "#002147",
+        "oxford-hover": "#001a38",
+        "teal-accent": "#0d7377",
+        "teal-hover": "#0a5c5f",
+        "warm-paper": "#faf8f5",
+        "warm-bg": "#f5f0e8",
+        "text-primary": "#1a1a2e",
+        "text-secondary": "#6b7280",
+        "decor-warm": "#d4a574",
+        "error-red": "#b43c28",
+        "pass-green": "#2c6e49",
+        "deep-emphasis": "#312e81",
+        "link-blue": "#3b82f6",
+      },
+      fontFamily: {
+        "headline": ["Cormorant Garamond", "serif"],
+        "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
+        "chem": ["JetBrains Mono", "IBM Plex Mono", "monospace"],
+      },
+      borderRadius: {
+        "DEFAULT": "0.125rem",
+        "lg": "0.25rem",
+        "xl": "0.5rem",
+        "full": "0.75rem",
+      },
+    },
+  },
+}
+</script>
+
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body { font-family: 'IBM Plex Sans', 'Noto Sans SC', sans-serif; }
+
+/* 骨架屏闪烁 */
+.skeleton { background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%); background-size: 400% 100%; animation: sk 1.4s ease infinite; }
+@keyframes sk { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* 障碍类型配色 */
+.barrier-concept { background-color: #8b5cf6; }
+.barrier-reading { background-color: #3b82f6; }
+.barrier-expression { background-color: #06b6d4; }
+</style>
+</head>
+
+<body class="bg-warm-paper text-text-primary min-h-screen">
+
+<!-- ═══════════════ 登录屏 ═══════════════ -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+    <h1 class="font-headline text-3xl text-oxford-blue mb-1">班级学情面板</h1>
+    <p class="text-sm text-text-secondary mb-6">教师登录后可查看班级学情</p>
+    <label class="block text-sm mb-1 text-text-secondary">用户名</label>
+    <input id="login-username" value="teacher_wang" class="w-full border border-gray-300 rounded px-3 py-2 mb-4 text-sm"/>
+    <label class="block text-sm mb-1 text-text-secondary">密码</label>
+    <input id="login-password" type="password" value="123456" class="w-full border border-gray-300 rounded px-3 py-2 mb-4 text-sm"/>
+    <button onclick="doLogin()" id="login-btn" class="w-full bg-oxford-blue text-white rounded py-2 text-sm hover:bg-oxford-hover">登 录</button>
+    <p id="login-error" class="text-sm text-error-red mt-3"></p>
+  </div>
+</div>
+
+<!-- ═══════════════ 主面板 ═══════════════ -->
+<div id="panel" class="hidden max-w-6xl mx-auto px-6 py-8">
+
+  <!-- 顶部：标题 + 班级选择器 -->
+  <header class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="font-headline text-4xl text-oxford-blue">班级学情面板</h1>
+      <p class="text-sm text-text-secondary mt-1">知识点错误率 · 障碍分布 · 成绩趋势 · 需关注学生</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="demo-badge" class="hidden text-xs font-bold px-2 py-1 rounded bg-decor-warm text-white">演示数据</span>
+      <select id="class-select" class="border border-gray-300 rounded px-3 py-2 text-sm bg-white min-w-40"></select>
+      <button onclick="loadData()" class="text-sm text-teal-accent hover:text-teal-hover flex items-center gap-1">
+        <span class="material-symbols-outlined text-base">refresh</span>刷新
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI 概要卡 -->
+  <section id="kpi-row" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></section>
+
+  <!-- 图表区 -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-xl border border-gray-200 p-5 lg:col-span-1">
+      <h2 class="font-headline text-xl text-oxford-blue mb-4">障碍类型分布</h2>
+      <div id="donut"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5 lg:col-span-2">
+      <h2 class="font-headline text-xl text-oxford-blue mb-4">知识点错误率</h2>
+      <div id="bar-chart"></div>
+    </div>
+  </section>
+
+  <section class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+    <h2 class="font-headline text-xl text-oxford-blue mb-4">成绩趋势</h2>
+    <div id="line-chart"></div>
+  </section>
+
+  <!-- 需关注学生横条 -->
+  <section class="bg-white rounded-xl border border-gray-200 p-5">
+    <h2 class="font-headline text-xl text-oxford-blue mb-4">需关注学生</h2>
+    <div id="students-list"></div>
+  </section>
+</div>
+
+<!-- ═══════════════ 学生详情抽屉 ═══════════════ -->
+<div id="drawer-mask" onclick="closeDrawer()" class="hidden fixed inset-0 bg-black/40 z-40"></div>
+<aside id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+  <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+    <h3 id="drawer-title" class="font-headline text-2xl text-oxford-blue"></h3>
+    <button onclick="closeDrawer()" class="material-symbols-outlined text-text-secondary hover:text-text-primary">close</button>
+  </div>
+  <div id="drawer-body" class="flex-1 overflow-y-auto px-6 py-4"></div>
+</aside>
+
+<script>
+// ── 常量 ──
+const API_BASE = 'http://localhost:8000';
+const BARRIER_COLORS = { concept: '#8b5cf6', reading: '#3b82f6', expression: '#06b6d4' };
+const BARRIER_LABELS = { concept: '概念障碍', reading: '阅读障碍', expression: '表达障碍' };
+
+// ── DOM 快捷 ──
+const $ = (sel) => document.querySelector(sel);
+
+// ── 状态 ──
+let currentClassId = null;
+let demoMode = false;
+let demoIndex = 0; // 演示数据按班级切换复用同一份
+
+// ── API 封装 ──
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('chemai_token');
+  const headers = { ...(options.headers || {}) };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(API_BASE + url, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('chemai_token');
+    showLogin();
+    throw new Error('401');
+  }
+  if (!res.ok) throw new Error(`${res.status}`);
+  return await res.json();
+}
+
+// ── 登录 ──
+function showLogin() {
+  $('#login-screen').classList.remove('hidden');
+  $('#panel').classList.add('hidden');
+}
+function showPanel() {
+  $('#login-screen').classList.add('hidden');
+  $('#panel').classList.remove('hidden');
+}
+async function doLogin() {
+  const err = $('#login-error');
+  err.textContent = '';
+  const btn = $('#login-btn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(API_BASE + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: $('#login-username').value, password: $('#login-password').value, role: 'teacher' }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem('chemai_token', data.data.token);
+      localStorage.setItem('chemai_user', JSON.stringify({ name: data.data.name, role: data.data.role }));
+      showPanel();
+      loadData();
+    } else {
+      err.textContent = data.message || '登录失败';
+    }
+  } catch (e) {
+    err.textContent = '网络错误，请确认后端已启动';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── 骨架屏 ──
+function skeleton(n, h = 'h-24') {
+  return `<div class="grid grid-cols-${Math.min(n, 4)} gap-4">${'<div class="skeleton rounded-lg ' + h + '"></div>'.repeat(n)}</div>`;
+}
+
+// ── 数据加载 ──
+async function loadData() {
+  try {
+    const classesData = await apiFetch('/api/classes');
+    if (!classesData || !classesData.success) throw new Error('classes');
+    const classes = classesData.data || [];
+    // 真实数据路径：成功即退出演示模式
+    demoMode = false;
+    $('#demo-badge').classList.add('hidden');
+    if (classes.length === 0) {
+      $('#class-select').innerHTML = '<option>暂无任课班级</option>';
+      renderEmpty();
+      return;
+    }
+    renderClassSelect(classes);
+    await Promise.all([loadPanel(), loadTrend()]);
+  } catch (e) {
+    if (e.message === '401') return;
+    enterDemoMode();
+  }
+}
+
+function renderClassSelect(classes) {
+  const sel = $('#class-select');
+  const current = classes.some(c => c.class_id === currentClassId) ? currentClassId : classes[0].class_id;
+  currentClassId = current;
+  sel.innerHTML = classes.map(c => `<option value="${c.class_id}">${c.class_name}</option>`).join('');
+  sel.value = current;
+  sel.onchange = () => { currentClassId = sel.value; loadPanel(); loadTrend(); };
+}
+
+async function loadPanel() {
+  const cid = currentClassId;
+  try {
+    const res = await apiFetch(`/api/panel/class/${cid}`);
+    if (!res || !res.success) throw new Error('panel');
+    renderPanel(res.data);
+  } catch (e) {
+    if (e.message === '401') return;
+    $('#kpi-row').innerHTML = renderErrorBox('面板数据加载失败');
+  }
+}
+
+async function loadTrend() {
+  const cid = currentClassId;
+  try {
+    const res = await apiFetch(`/api/panel/class/${cid}/trend`);
+    if (!res || !res.success) throw new Error('trend');
+    renderLineChart(res.data.score_trend);
+  } catch (e) {
+    if (e.message === '401') return;
+    $('#line-chart').innerHTML = renderErrorBox('趋势数据加载失败');
+  }
+}
+
+// ── 渲染 ──
+function renderPanel(d) {
+  const ov = d.class_overview;
+  const needAttention = (d.students || []).filter(s => s.dominant_barrier).length;
+
+  const kpis = [
+    { label: '考试次数', value: ov.exam_count, icon: 'fact_check' },
+    { label: '需关注学生', value: needAttention, icon: 'person_alert' },
+    { label: '班级人数', value: ov.total_students, icon: 'groups' },
+    { label: '最近均分', value: ov.recent_exam_avg != null ? ov.recent_exam_avg : '—', icon: 'trending_up' },
+  ];
+  $('#kpi-row').innerHTML = kpis.map(k => `
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-text-secondary">${k.label}</span>
+        <span class="material-symbols-outlined text-teal-accent text-base">${k.icon}</span>
+      </div>
+      <div class="text-3xl font-headline text-oxford-blue mt-2">${k.value}</div>
+    </div>`).join('');
+
+  renderBarChart(d.knowledge_points);
+  renderDonut(d.barrier_distribution);
+  renderStudents(d.students);
+}
+
+function renderBarChart(kps) {
+  const el = $('#bar-chart');
+  if (!kps || kps.length === 0) { el.innerHTML = emptyState('暂无作答数据'); return; }
+  const top = kps.slice(0, 10);
+  const bars = top.map(k => {
+    const pct = Math.round(k.class_error_rate * 100);
+    return `
+      <div class="flex-1 flex flex-col items-center justify-end h-56 min-w-0">
+        <span class="text-xs font-chem text-text-secondary mb-1">${pct}%</span>
+        <div class="w-full max-w-10 bg-teal-accent rounded-t" style="height: ${Math.max(pct, 2)}%"></div>
+        <span class="text-xs text-text-secondary mt-2 truncate w-full text-center" title="${k.knowledge_point}">${k.knowledge_point}</span>
+      </div>`;
+  }).join('');
+  el.innerHTML = `<div class="flex items-end gap-2">${bars}</div>`;
+}
+
+function renderDonut(dist) {
+  const el = $('#donut');
+  if (!dist) { el.innerHTML = emptyState('暂无障碍数据'); return; }
+  const total = (dist.concept || 0) + (dist.reading || 0) + (dist.expression || 0);
+  if (total === 0) { el.innerHTML = emptyState('暂无障碍数据'); return; }
+
+  const r = 54, cx = 60, cy = 60, C = 2 * Math.PI * r;
+  let offset = 0, segments = '';
+  ['concept', 'reading', 'expression'].forEach(key => {
+    const len = ((dist[key] || 0) / total) * C;
+    if (len > 0) {
+      segments += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${BARRIER_COLORS[key]}" stroke-width="18"
+        stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"></circle>`;
+      offset += len;
+    }
+  });
+  const legend = ['concept', 'reading', 'expression'].map(key => `
+    <div class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-sm" style="background:${BARRIER_COLORS[key]}"></span>
+      <span class="text-xs text-text-secondary">${BARRIER_LABELS[key]} · ${dist[key] || 0}</span>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <svg viewBox="0 0 120 120" class="w-40 h-40 mx-auto">
+      ${segments}
+      <text x="60" y="60" text-anchor="middle" dominant-baseline="middle" class="font-headline" font-size="26" fill="#002147">${total}</text>
+    </svg>
+    <div class="flex justify-center gap-4 mt-4">${legend}</div>`;
+}
+
+function renderLineChart(series) {
+  const el = $('#line-chart');
+  if (!series || series.length < 2) { el.innerHTML = emptyState('数据不足以绘制趋势'); return; }
+
+  const W = 600, H = 220, pad = 30;
+  const scores = series.map(s => s.avg_score);
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const range = (max - min) || 1;
+  const n = series.length;
+  const px = (i) => pad + (i * (W - pad * 2)) / (n - 1);
+  const py = (v) => H - pad - ((v - min) / range) * (H - pad * 2);
+
+  const pts = series.map((s, i) => `${px(i)},${py(s.avg_score)}`).join(' ');
+  const dots = series.map((s, i) => `<circle cx="${px(i)}" cy="${py(s.avg_score)}" r="3" fill="#0d7377"></circle>`).join('');
+  const labels = series.map((s, i) => `<text x="${px(i)}" y="${H - 8}" text-anchor="middle" font-size="9" fill="#6b7280">${fmtDate(s.taken_at)}</text>`).join('');
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" class="w-full">
+      <polyline points="${pts}" fill="none" stroke="#0d7377" stroke-width="2"></polyline>
+      ${dots}${labels}
+    </svg>`;
+}
+
+function renderStudents(students) {
+  const el = $('#students-list');
+  if (!students || students.length === 0) { el.innerHTML = emptyState('暂无学生'); return; }
+  const rows = students.map(s => {
+    const seg = ['concept', 'reading', 'expression'].map(key => {
+      const w = Math.round((s[key] || 0) * 100);
+      return `<div class="barrier-${key}" style="width:${w}%"></div>`;
+    }).join('');
+    const dominant = s.dominant_barrier ? BARRIER_LABELS[s.dominant_barrier] : '—';
+    return `
+      <button onclick="openDrawer('${s.student_id}')" class="w-full flex items-center gap-4 py-3 px-2 rounded hover:bg-warm-paper text-left">
+        <div class="w-20 truncate text-sm font-semibold">${s.name}</div>
+        <div class="flex-1 flex h-3 rounded overflow-hidden">${seg}</div>
+        <div class="w-20 text-xs text-text-secondary">${dominant}</div>
+        <span class="material-symbols-outlined text-text-secondary text-base">chevron_right</span>
+      </button>`;
+  }).join('');
+  el.innerHTML = rows;
+}
+
+// ── 学生抽屉 ──
+async function openDrawer(studentId) {
+  $('#drawer-mask').classList.remove('hidden');
+  $('#drawer').classList.remove('translate-x-full');
+  $('#drawer-title').textContent = '学生学情详情';
+  $('#drawer-body').innerHTML = skeleton(3, 'h-16');
+  try {
+    const res = await apiFetch(`/api/panel/class/${currentClassId}/student/${studentId}`);
+    if (!res || !res.success) throw new Error('student');
+    renderDrawer(res.data);
+  } catch (e) {
+    if (e.message === '401') return;
+    $('#drawer-body').innerHTML = renderErrorBox('学生详情加载失败');
+  }
+}
+function renderDrawer(d) {
+  const dist = ['concept', 'reading', 'expression'].map(key => `
+    <div class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-sm" style="background:${BARRIER_COLORS[key]}"></span>
+      <span class="text-sm text-text-secondary">${BARRIER_LABELS[key]}</span>
+      <span class="text-sm font-semibold ml-auto">${Math.round((d.barrier_distribution[key] || 0) * 100)}%</span>
+    </div>`).join('');
+
+  const weak = (d.weak_knowledge_points || []).map(k => `<span class="text-xs px-2 py-1 rounded bg-warm-bg">${k}</span>`).join(' ') || '<span class="text-xs text-text-secondary">暂无</span>';
+  const history = (d.history || []).map(h => `
+    <div class="flex items-center justify-between py-2 border-b border-gray-100">
+      <span class="text-xs text-text-secondary">${fmtDate(h.taken_at)}</span>
+      <span class="text-sm font-semibold">${Math.round(h.accuracy * 100)}%</span>
+      <span class="text-xs text-text-secondary">${h.total_answers} 题</span>
+    </div>`).join('') || '<span class="text-xs text-text-secondary">暂无作答记录</span>';
+
+  const dominant = d.dominant_barrier ? BARRIER_LABELS[d.dominant_barrier] : '—';
+  $('#drawer-title').textContent = d.name;
+  $('#drawer-body').innerHTML = `
+    <p class="text-sm text-text-secondary mb-2">${d.class_name}</p>
+    <h4 class="font-semibold text-sm mb-2">障碍分布</h4>
+    <div class="space-y-1 mb-2">${dist}</div>
+    <p class="text-sm text-text-secondary mb-5">主导障碍：<span class="font-semibold text-text-primary">${dominant}</span></p>
+    <h4 class="font-semibold text-sm mb-2">薄弱知识点</h4>
+    <div class="flex flex-wrap gap-1 mb-5">${weak}</div>
+    <h4 class="font-semibold text-sm mb-2">作答历史</h4>
+    <div>${history}</div>`;
+}
+function closeDrawer() {
+  $('#drawer-mask').classList.add('hidden');
+  $('#drawer').classList.add('translate-x-full');
+}
+
+// ── 空态 / 错误态 ──
+function emptyState(msg) {
+  return `<div class="text-center py-10 text-sm text-text-secondary"><span class="material-symbols-outlined block text-3xl mb-2">inbox</span>${msg}</div>`;
+}
+function renderErrorBox(msg) {
+  return `<div class="text-center py-6"><p class="text-sm text-error-red mb-3">${msg}</p>
+    <button onclick="loadData()" class="text-sm text-teal-accent hover:text-teal-hover border border-teal-accent rounded px-3 py-1">重试</button></div>`;
+}
+function renderEmpty() {
+  $('#kpi-row').innerHTML = emptyState('暂无班级数据');
+  $('#bar-chart').innerHTML = '';
+  $('#donut').innerHTML = '';
+  $('#line-chart').innerHTML = '';
+  $('#students-list').innerHTML = '';
+}
+
+// ── 演示模式 ──
+function enterDemoMode() {
+  demoMode = true;
+  $('#demo-badge').classList.remove('hidden');
+  renderDemo();
+}
+function renderDemo() {
+  const d = DEMO[demoIndex % DEMO.length];
+  currentClassId = d.panel.class_overview.class_id;
+  $('#class-select').innerHTML = DEMO.map(c => `<option value="${c.class_id}">${c.class_name}</option>`).join('');
+  $('#class-select').value = currentClassId;
+  $('#class-select').onchange = () => { demoIndex = DEMO.findIndex(c => c.class_id === $('#class-select').value); renderDemo(); };
+  renderPanel(d.panel);
+  renderLineChart(d.trend.score_trend);
+}
+// ── 工具 ──
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+// ── 演示数据 ──
+const DEMO = [
+  {
+    class_id: 'demo-1', class_name: '高一(3)班', subject: '化学',
+    panel: {
+      class_overview: { class_id: 'demo-1', class_name: '高一(3)班', total_students: 42, exam_count: 8, recent_exam_avg: 78.5, recent_exam_date: '2026-06-12T00:00:00+00:00', avg_score_trend: [] },
+      knowledge_points: [
+        { knowledge_point: '电解质', class_error_rate: 0.62, total: 48, errors: 30 },
+        { knowledge_point: '化学键', class_error_rate: 0.45, total: 44, errors: 20 },
+        { knowledge_point: '氧化还原', class_error_rate: 0.38, total: 50, errors: 19 },
+        { knowledge_point: '物质的量', class_error_rate: 0.30, total: 46, errors: 14 },
+        { knowledge_point: '元素周期律', class_error_rate: 0.22, total: 40, errors: 9 },
+      ],
+      top_errors: [],
+      barrier_distribution: { concept: 12, reading: 7, expression: 5 },
+      students: [
+        { student_id: 's1', name: '张三', concept: 0.7, reading: 0.2, expression: 0.1, dominant_barrier: 'concept' },
+        { student_id: 's2', name: '李四', concept: 0.2, reading: 0.7, expression: 0.1, dominant_barrier: 'reading' },
+        { student_id: 's3', name: '王五', concept: 0.1, reading: 0.2, expression: 0.7, dominant_barrier: 'expression' },
+        { student_id: 's4', name: '赵六', concept: 0.1, reading: 0.1, expression: 0.1, dominant_barrier: null },
+      ],
+    },
+    trend: { score_trend: [
+      { taken_at: '2026-04-01T00:00:00+00:00', avg_score: 72 },
+      { taken_at: '2026-04-15T00:00:00+00:00', avg_score: 74 },
+      { taken_at: '2026-05-01T00:00:00+00:00', avg_score: 71 },
+      { taken_at: '2026-05-15T00:00:00+00:00', avg_score: 76 },
+      { taken_at: '2026-06-01T00:00:00+00:00', avg_score: 79 },
+      { taken_at: '2026-06-12T00:00:00+00:00', avg_score: 78.5 },
+    ], knowledge_trend: [] },
+  },
+  {
+    class_id: 'demo-2', class_name: '高一(5)班', subject: '化学',
+    panel: {
+      class_overview: { class_id: 'demo-2', class_name: '高一(5)班', total_students: 39, exam_count: 7, recent_exam_avg: 82.1, recent_exam_date: '2026-06-10T00:00:00+00:00', avg_score_trend: [] },
+      knowledge_points: [
+        { knowledge_point: '化学键', class_error_rate: 0.51, total: 42, errors: 21 },
+        { knowledge_point: '电解质', class_error_rate: 0.40, total: 44, errors: 18 },
+        { knowledge_point: '氧化还原', class_error_rate: 0.28, total: 40, errors: 11 },
+      ],
+      top_errors: [],
+      barrier_distribution: { concept: 9, reading: 6, expression: 4 },
+      students: [
+        { student_id: 's5', name: '钱七', concept: 0.6, reading: 0.3, expression: 0.1, dominant_barrier: 'concept' },
+        { student_id: 's6', name: '孙八', concept: 0.3, reading: 0.6, expression: 0.1, dominant_barrier: 'reading' },
+      ],
+    },
+    trend: { score_trend: [
+      { taken_at: '2026-04-10T00:00:00+00:00', avg_score: 75 },
+      { taken_at: '2026-05-10T00:00:00+00:00', avg_score: 79 },
+      { taken_at: '2026-06-10T00:00:00+00:00', avg_score: 82.1 },
+    ], knowledge_trend: [] },
+  },
+];
+
+// ── 启动 ──
+(function init() {
+  const token = localStorage.getItem('chemai_token');
+  if (token) { showPanel(); loadData(); }
+  else { showLogin(); }
+})();
+</script>
+</body>
+</html>

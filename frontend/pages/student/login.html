@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>登录 — ChemAI 智辅化学</title>
+
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      "oxford-blue": "#002147", "oxford-hover": "#001a38",
+      "teal-accent": "#0d7377", "teal-hover": "#0a5c5f",
+      "warm-paper": "#faf8f5", "warm-bg": "#f5f0e8",
+      "text-primary": "#1a1a2e", "text-secondary": "#6b7280",
+      "error-red": "#b43c28", "pass-green": "#2c6e49",
+    },
+    fontFamily: {
+      "headline": ["Cormorant Garamond", "serif"],
+      "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
+    },
+  } },
+}
+</script>
+
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
+.app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; }
+
+/* 输入框聚焦 */
+input:focus { outline: none; border-color: #0d7377; box-shadow: 0 0 0 2px rgba(13,115,119,.15); }
+input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); }
+
+/* 抖动动画 */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.shake { animation: shake .4s ease; }
+</style>
+</head>
+<body class="bg-warm-bg text-text-primary">
+<div class="app" id="app">
+
+  <!-- Logo 区 -->
+  <div class="flex flex-col items-center pt-16 pb-8">
+    <!-- 化学烧瓶 SVG 图标 -->
+    <div class="w-16 h-16 rounded-2xl bg-oxford-blue flex items-center justify-center mb-4">
+      <span class="material-symbols-outlined text-white text-3xl">science</span>
+    </div>
+    <h1 class="font-headline text-2xl font-semibold text-oxford-blue">ChemAI 智辅化学</h1>
+    <p class="text-sm text-text-secondary mt-1">学生端</p>
+  </div>
+
+  <!-- 表单区 -->
+  <div class="px-6">
+    <!-- 错误提示 -->
+    <div v-if="error" class="mb-4 p-3 rounded-lg bg-red-50 text-sm text-error-red text-center">
+      {{ error }}
+    </div>
+
+    <!-- 学号/手机号 -->
+    <div class="mb-4">
+      <label class="block text-xs text-text-secondary mb-1.5">学号或手机号</label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">badge</span>
+        <input v-model="identifier" type="text" placeholder="请输入学号或手机号"
+               class="w-full h-12 pl-10 pr-4 rounded-lg border border-gray-200 bg-white text-sm"
+               :class="{ error: fieldError === 'identifier' }"
+               @keyup.enter="login"/>
+      </div>
+    </div>
+
+    <!-- 密码 -->
+    <div class="mb-6">
+      <label class="block text-xs text-text-secondary mb-1.5">密码</label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">lock</span>
+        <input v-model="password" :type="showPwd ? 'text' : 'password'" placeholder="请输入密码"
+               class="w-full h-12 pl-10 pr-12 rounded-lg border border-gray-200 bg-white text-sm"
+               :class="{ error: fieldError === 'password' }"
+               @keyup.enter="login"/>
+        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary"
+                @click="showPwd = !showPwd">
+          <span class="material-symbols-outlined text-xl">{{ showPwd ? 'visibility_off' : 'visibility' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 登录按钮 -->
+    <button class="w-full h-12 rounded-lg text-white font-semibold text-sm transition-colors"
+            :class="loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-oxford-blue hover:bg-oxford-hover'"
+            :disabled="loading"
+            @click="login">
+      <span v-if="loading" class="flex items-center justify-center gap-2">
+        <svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        登录中…
+      </span>
+      <span v-else>登 录</span>
+    </button>
+
+    <!-- 底部提示 -->
+    <p class="mt-6 text-center text-xs text-text-secondary">
+      还没有账号？<span class="text-teal-accent">联系老师注册</span>
+    </p>
+  </div>
+
+  <!-- 版本号 -->
+  <div class="absolute bottom-6 left-0 right-0 text-center">
+    <p class="text-xs text-gray-300">ChemAI v0.1.0</p>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+const { createApp } = Vue;
+createApp({
+  data() {
+    return {
+      identifier: '',
+      password: '',
+      showPwd: false,
+      loading: false,
+      error: '',
+      fieldError: '',
+    };
+  },
+  mounted() {
+    // 已登录则直接跳转
+    if (ChemAPI.isTokenValid()) {
+      window.location.href = 'index.html';
+    }
+  },
+  methods: {
+    async login() {
+      this.error = '';
+      this.fieldError = '';
+
+      if (!this.identifier.trim()) {
+        this.fieldError = 'identifier';
+        this.error = '请输入学号或手机号';
+        return;
+      }
+      if (!this.password) {
+        this.fieldError = 'password';
+        this.error = '请输入密码';
+        return;
+      }
+
+      this.loading = true;
+      try {
+        const res = await ChemAPI.post('/api/auth/login', {
+          username: this.identifier.trim(),
+          password: this.password,
+          role: 'student',
+        });
+        // 存储 token（后端返回 {success, data: {token, ...}}）
+        const token = res.data && res.data.token;
+        if (!token) throw new Error('登录响应缺少 token');
+        ChemAPI.setToken(token);
+        // 跳转首页
+        window.location.href = 'index.html';
+      } catch (e) {
+        this.error = e.message || '账号或密码错误';
+        // 触发抖动动画
+        const form = this.$el.querySelector('.px-6');
+        if (form) { form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
+      } finally {
+        this.loading = false;
+      }
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

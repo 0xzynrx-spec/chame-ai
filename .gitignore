@@ -11,6 +11,9 @@ __pycache__/
 # ChromaDB 向量数据（运行时生成）
 chemai-backend/data/chromadb/
 
+# OCR 答题卡上传落盘目录（运行时生成）
+chemai-backend/data/uploads/
+
 # gstack / graphify 生成物
 graphify-out/
 .gstack/

@@ -21,23 +21,36 @@ class BarrierType(str, enum.Enum):
     EXPRESSION = "expression"  # 表述障碍型
 
 
+class RecordType(str, enum.Enum):
+    """记录类型枚举（考试记录 vs 练习记录）"""
+    EXAM = "exam"           # 考试记录（班粒度）
+    PRACTICE = "practice"   # 练习记录（学生粒度）
+
+
 class ExamRecord(Base, TimestampMixin):
-    """考试记录 — 某班某次考试的实例
+    """考试记录 — 某班某次考试的实例（考试）或某学生的一次练习（练习）
 
     一份试卷定义（Exam）可对应多条考试记录（每班一条），关联班级与考试时间、
     平均分、参考人数。诊断以 exam_record_id 为分组键。
+    type=practice 时记录学生粒度练习：student_id 指向学生、exam_id 为空。
     """
 
     __tablename__ = "exam_records"
 
-    exam_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, comment="关联试卷定义 ID"
+    exam_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("exams.id", ondelete="CASCADE"), nullable=True, comment="关联试卷定义 ID（练习记录为空）"
     )
     class_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, comment="班级 ID"
     )
+    type: Mapped[RecordType] = mapped_column(
+        Enum(RecordType), nullable=False, default=RecordType.EXAM, comment="记录类型：exam / practice"
+    )
+    student_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("students.id", ondelete="CASCADE"), nullable=True, comment="学生 ID（练习记录时填）"
+    )
     taken_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), comment="考试时间"
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), comment="考试/练习时间"
     )
     avg_score: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="平均分"
@@ -49,12 +62,13 @@ class ExamRecord(Base, TimestampMixin):
     # 关系
     exam = relationship("Exam", lazy="selectin")
     class_ = relationship("Class", lazy="selectin")
+    student = relationship("Student", lazy="selectin")
     student_answers: Mapped[list["StudentAnswer"]] = relationship(
         "StudentAnswer", back_populates="exam_record", cascade="all, delete-orphan", lazy="selectin"
     )
 
     def __repr__(self) -> str:
-        return f"<ExamRecord(id={self.id!r}, exam_id={self.exam_id!r}, class_id={self.class_id!r})>"
+        return f"<ExamRecord(id={self.id!r}, type={self.type!r}, exam_id={self.exam_id!r}, class_id={self.class_id!r})>"
 
 
 class StudentAnswer(Base, TimestampMixin):

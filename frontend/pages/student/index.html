@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>AI 助教 — ChemAI 智辅化学</title>
+
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      "oxford-blue": "#002147", "oxford-hover": "#001a38",
+      "teal-accent": "#0d7377", "teal-hover": "#0a5c5f",
+      "warm-paper": "#faf8f5", "warm-bg": "#f5f0e8",
+      "text-primary": "#1a1a2e", "text-secondary": "#6b7280",
+      "error-red": "#b43c28", "pass-green": "#2c6e49",
+    },
+    fontFamily: {
+      "headline": ["Cormorant Garamond", "serif"],
+      "body": ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],
+      "chem": ["JetBrains Mono", "IBM Plex Mono", "monospace"],
+    },
+  } },
+}
+</script>
+
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+body { font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; }
+
+.app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: #faf8f5; display: flex; flex-direction: column; }
+
+/* 消息区域 */
+.chat-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px 8px; }
+
+/* 消息气泡 */
+.msg-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.msg-row.user { flex-direction: row-reverse; }
+.msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.msg-avatar.ai { background: #0d7377; color: #fff; }
+.msg-avatar.user { background: #002147; color: #fff; }
+.msg-bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+.msg-bubble.ai { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 4px 14px 14px 14px; }
+.msg-bubble.user { background: #002147; color: #fff; border-radius: 14px 4px 14px 14px; }
+.msg-bubble pre { background: #1a1a2e; color: #e5e7eb; padding: 10px; border-radius: 8px; margin: 8px 0; overflow-x: auto; font-size: 13px; font-family: "JetBrains Mono", monospace; }
+.msg-bubble code { font-family: "JetBrains Mono", monospace; font-size: 13px; }
+.msg-bubble p { margin: 0 0 8px; }
+.msg-bubble p:last-child { margin-bottom: 0; }
+.msg-bubble ol, .msg-bubble ul { padding-left: 1.2em; margin: 6px 0; }
+.msg-bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 13px; }
+.msg-bubble th, .msg-bubble td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+.msg-bubble th { background: #f3f4f6; }
+
+/* Agent 状态栏 */
+.agent-status { display: flex; align-items: center; gap: 6px; padding: 6px 12px; margin: 0 0 8px; font-size: 12px; color: #6b7280; }
+.agent-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #0d7377; animation: dot-pulse .8s ease infinite; }
+@keyframes dot-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+/* 打字指示器 */
+.typing-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+.typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: #0d7377; animation: bounce .6s ease infinite; }
+.typing-dots span:nth-child(2) { animation-delay: .15s; }
+.typing-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* 工具调用卡片 */
+.tool-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin: 8px 0; font-size: 13px; }
+.tool-card-header { display: flex; align-items: center; gap: 6px; font-weight: 600; color: #0d7377; }
+.tool-card-header .material-symbols-outlined { font-size: 18px; }
+.tool-card-body { margin-top: 6px; color: #374151; font-size: 12px; line-height: 1.5; }
+.tool-card-timer { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+/* 输入区 */
+.input-bar { position: sticky; bottom: 56px; background: #fff; border-top: 1px solid #eee; padding: 10px 12px; display: flex; gap: 8px; align-items: flex-end; z-index: 10; }
+.input-bar textarea {
+  flex: 1; resize: none; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 10px 14px; font-size: 14px; line-height: 1.4; max-height: 120px;
+  outline: none; font-family: inherit; background: #f9fafb;
+}
+.input-bar textarea:focus { border-color: #0d7377; background: #fff; }
+.send-btn {
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: #0d7377; color: #fff; border: none; flex-shrink: 0; cursor: pointer; transition: all .15s;
+}
+.send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+.send-btn:not(:disabled):hover { background: #0a5c5f; }
+
+/* 快捷芯片 */
+.chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 8px 16px 12px; scrollbar-width: none; }
+.chip-row::-webkit-scrollbar { display: none; }
+.chip {
+  flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #e5e7eb;
+  background: #fff; font-size: 13px; color: #374151; cursor: pointer; white-space: nowrap;
+  display: flex; align-items: center; gap: 4px; transition: all .15s;
+}
+.chip:hover { border-color: #0d7377; color: #0d7377; background: #f0fdfa; }
+
+/* 侧边栏 */
+.sidebar-mask { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.4); }
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; width: 280px; z-index: 31;
+  background: #fff; box-shadow: 4px 0 24px rgba(0,0,0,.1); display: flex; flex-direction: column;
+  transform: translateX(-100%); transition: transform .25s ease;
+}
+.sidebar.open { transform: translateX(0); }
+.sidebar-profile { padding: 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f3f4f6; }
+.sidebar-profile .avatar { width: 40px; height: 40px; border-radius: 50%; background: #002147; color: #fff; display: flex; align-items: center; justify-content: center; }
+.conv-item {
+  padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f3f4f6;
+  transition: background .15s;
+}
+.conv-item:hover { background: #f9fafb; }
+.conv-item.active { background: #f0fdfa; border-left: 3px solid #0d7377; }
+.conv-item .conv-title { font-size: 14px; font-weight: 500; }
+.conv-item .conv-time { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+/* 空态 */
+.welcome-icon { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, #0d7377, #002147); display: flex; align-items: center; justify-content: center; }
+
+/* 滚动条 */
+.chat-area::-webkit-scrollbar { width: 4px; }
+.chat-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+/* 移动端键盘适配 */
+@supports (height: 100dvh) { .app { height: 100dvh; } }
+</style>
+</head>
+<body class="bg-warm-bg text-text-primary">
+<div class="app" id="app">
+  <!-- 顶部标题栏 -->
+  <header class="h-14 flex items-center justify-between px-4 bg-oxford-blue text-white shrink-0 z-10">
+    <button class="w-10 h-10 flex items-center justify-center -ml-1" @click="sidebarOpen = true">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+    <h1 class="text-base font-semibold">AI 助教</h1>
+    <button class="w-10 h-10 flex items-center justify-center -mr-1" @click="newConversation">
+      <span class="material-symbols-outlined">add</span>
+    </button>
+  </header>
+
+  <!-- 消息区域 -->
+  <div class="chat-area" ref="chatArea">
+    <!-- 空态：欢迎 -->
+    <div v-if="messages.length === 0" class="flex flex-col items-center py-12">
+      <div class="welcome-icon mb-4">
+        <span class="material-symbols-outlined text-3xl text-white">smart_toy</span>
+      </div>
+      <h2 class="text-base font-semibold text-oxford-blue mb-1">你好，我是 ChemAI 助教</h2>
+      <p class="text-sm text-text-secondary text-center px-8">遇到化学问题可以问我，我来帮你分析</p>
+    </div>
+
+    <!-- 消息列表 -->
+    <template v-for="(msg, i) in messages" :key="i">
+      <!-- 工具调用卡片 -->
+      <div v-if="msg.role === 'tool'" class="tool-card">
+        <div class="tool-card-header">
+          <span class="material-symbols-outlined">build</span>
+          <span>{{ msg.tool_name || '工具调用' }}</span>
+        </div>
+        <div v-if="msg.tool_input" class="tool-card-body">{{ msg.tool_input }}</div>
+        <div v-if="msg.tool_result" class="tool-card-body" style="margin-top:4px;color:#2c6e49">{{ msg.tool_result }}</div>
+        <div v-if="msg.tool_elapsed" class="tool-card-timer">耗时 {{ msg.tool_elapsed }}s</div>
+      </div>
+
+      <!-- 普通消息气泡 -->
+      <div v-else class="msg-row" :class="msg.role">
+        <div class="msg-avatar" :class="msg.role">
+          <span class="material-symbols-outlined text-sm" v-if="msg.role === 'ai'">smart_toy</span>
+          <span class="material-symbols-outlined text-sm" v-else>person</span>
+        </div>
+        <div class="msg-bubble" :class="msg.role">
+          <div v-if="msg.role === 'ai'" v-html="renderMarkdown(msg.content)" @click="handleBubbleClick($event)"></div>
+          <template v-else>{{ msg.content }}</template>
+        </div>
+      </div>
+    </template>
+
+    <!-- Agent 状态栏 -->
+    <div v-if="agentStatus" class="agent-status">
+      <div class="dot"></div>
+      <span>{{ agentStatusLabel }}</span>
+    </div>
+
+    <!-- 打字指示器 -->
+    <div v-if="streaming && !streamContent" class="msg-row ai">
+      <div class="msg-avatar ai"><span class="material-symbols-outlined text-sm">smart_toy</span></div>
+      <div class="msg-bubble ai"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+    </div>
+  </div>
+
+  <!-- 快捷芯片（仅空态显示） -->
+  <div v-if="messages.length === 0" class="chip-row">
+    <div class="chip" v-for="c in chips" :key="c" @click="sendMessage(c)">{{ c }}</div>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="input-bar">
+    <textarea v-model="input" ref="inputEl" rows="1" placeholder="输入你的问题…"
+              @input="autoResize" @keydown.enter.exact.prevent="onEnter"></textarea>
+    <button class="send-btn" :disabled="!input.trim() || streaming" @click="sendMessage()">
+      <span class="material-symbols-outlined text-xl">{{ streaming ? 'stop' : 'arrow_upward' }}</span>
+    </button>
+  </div>
+
+  <!-- 底部 TabBar -->
+  <nav class="bottom-nav"></nav>
+
+  <!-- 侧边栏：对话管理 -->
+  <div v-if="sidebarOpen" class="sidebar-mask" @click="sidebarOpen = false"></div>
+  <div class="sidebar" :class="{ open: sidebarOpen }">
+    <div class="h-14 flex items-center px-4 bg-oxford-blue text-white shrink-0">
+      <span class="text-sm font-semibold">对话记录</span>
+      <button class="ml-auto w-8 h-8 rounded-full bg-white/20 flex items-center justify-center" @click="sidebarOpen = false">
+        <span class="material-symbols-outlined text-lg">close</span>
+      </button>
+    </div>
+    <!-- 学生信息 -->
+    <div class="sidebar-profile">
+      <div class="avatar"><span class="material-symbols-outlined text-lg">person</span></div>
+      <div>
+        <div class="text-sm font-semibold">{{ studentName || '学生' }}</div>
+        <div class="text-xs text-text-secondary">{{ studentClass || '' }}</div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      <div v-if="conversations.length === 0" class="p-4 text-sm text-text-secondary text-center">
+        暂无对话记录
+      </div>
+      <div v-for="conv in conversations" :key="conv.id" class="conv-item"
+           :class="{ active: conv.id === currentConvId }"
+           @click="loadConversation(conv.id)">
+        <div class="conv-title">{{ conv.title || '新对话' }}</div>
+        <div class="conv-time">{{ ChemUI.fmtTime(conv.updated_at) }}</div>
+      </div>
+    </div>
+    <div class="p-3 border-t border-gray-100">
+      <button class="w-full h-10 rounded-lg bg-teal-accent text-white text-sm font-medium hover:bg-teal-hover transition-colors"
+              @click="newConversation(); sidebarOpen = false">
+        <span class="material-symbols-outlined text-sm mr-1 align-text-bottom">add</span>新建对话
+      </button>
+      <button class="w-full h-9 mt-2 rounded-lg border border-gray-200 text-sm text-text-secondary hover:bg-gray-50 transition-colors"
+              @click="doLogout">退出登录</button>
+    </div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      messages: [],       // [{role: 'user'|'ai'|'tool', content, tool_name, tool_input, tool_result, tool_elapsed}]
+      input: '',
+      streaming: false,
+      streamContent: '',  // 当前流式累积内容
+      agentStatus: '',    // thinking | executing | reply | ''
+      toolStartTime: 0,   // 工具调用计时
+      sseClient: null,
+
+      // 学生信息
+      studentName: '',
+      studentClass: '',
+
+      // 对话管理
+      currentConvId: '',
+      conversations: [],  // [{id, title, messages, updated_at}]
+      sidebarOpen: false,
+
+      // 快捷提示
+      chips: [
+        '氧化还原反应怎么判断？',
+        '化学平衡常数怎么算？',
+        '离子方程式书写规则',
+        '有机化学命名方法',
+        '溶液 pH 值怎么求？',
+      ],
+    };
+  },
+  computed: {
+    agentStatusLabel() {
+      return { thinking: '正在思考…', executing: '正在检索知识…', reply: '正在组织答案…' }[this.agentStatus] || '';
+    },
+  },
+  async mounted() {
+    if (!ChemAPI.authGuard()) return;
+    ChemUI.renderTabBar('ai');
+    this.loadConversations();
+    await this.loadStudentInfo();
+  },
+  methods: {
+    // ---- Markdown 渲染 ----
+    renderMarkdown(text) {
+      if (!text) return '';
+      let html = text;
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        return '<pre><code class="language-' + lang + '">' + this.escHtml(code) + '</code></pre>';
+      });
+      html = html.replace(/`([^`]+)`/g, '<code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:13px">$1</code>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      html = html.replace(/^### (.+)$/gm, '<h3 style="font-size:15px;font-weight:600;margin:12px 0 4px">$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2 style="font-size:16px;font-weight:600;margin:14px 0 6px">$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:17px;font-weight:700;margin:16px 0 8px">$1</h1>');
+      html = html.replace(/^\> (.+)$/gm, '<blockquote style="border-left:3px solid #0d7377;padding-left:12px;color:#6b7280;margin:8px 0">$1</blockquote>');
+      html = html.replace(/^(\d+)\. (.+)$/gm, '<li style="margin:2px 0">$2</li>');
+      html = html.replace(/^[\-\*] (.+)$/gm, '<li style="margin:2px 0">$1</li>');
+      html = html.replace(/\n\n/g, '</p><p>');
+      html = html.replace(/\n/g, '<br/>');
+      html = '<p>' + html + '</p>';
+      html = html.replace(/<p>\s*<\/p>/g, '');
+      return html;
+    },
+    escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    },
+    handleBubbleClick(e) {
+      this.$nextTick(() => ChemUI.renderChemContent(e.target.closest('.msg-bubble')));
+    },
+
+    // ---- 学生信息 ----
+    async loadStudentInfo() {
+      try {
+        var sid = ChemAPI.studentId();
+        if (!sid) return;
+        var res = await ChemAPI.get('/api/student/' + sid + '/dashboard');
+        if (res && res.data && res.data.profile) {
+          this.studentName = res.data.profile.name || '';
+          this.studentClass = res.data.profile.class_name || '';
+        }
+      } catch (e) { /* 静默失败 */ }
+    },
+
+    // ---- 发送消息 ----
+    async sendMessage(text) {
+      var content = (text || this.input).trim();
+      if (!content || this.streaming) return;
+      this.input = '';
+      this.autoResize();
+
+      // 用户消息
+      this.messages.push({ role: 'user', content: content });
+      this.scrollToBottom();
+
+      // 开始流式请求
+      this.streaming = true;
+      this.streamContent = '';
+      this.agentStatus = 'thinking';
+
+      // AI 占位
+      var aiIdx = this.messages.length;
+      this.messages.push({ role: 'ai', content: '' });
+
+      var self = this;
+
+      this.sseClient = ChemUI.createSSEClient({
+        url: '/api/chat/langgraph/stream',
+        body: {
+          message: content,
+          thread_id: this.currentConvId || undefined,
+        },
+        onOpen: function () { self.agentStatus = 'thinking'; },
+        onMessage: function (dataStr) {
+          try {
+            var parsed = JSON.parse(dataStr);
+            // phase 事件：Agent 阶段切换
+            if (parsed.phase) {
+              self.agentStatus = parsed.phase;
+              if (parsed.thread_id && !self.currentConvId) {
+                self.currentConvId = parsed.thread_id;
+              }
+              return;
+            }
+            // tool_call 事件：工具调用开始
+            if (parsed.tool_call) {
+              self.toolStartTime = Date.now();
+              self.messages.push({
+                role: 'tool',
+                tool_name: parsed.tool_call.name || parsed.tool_call,
+                tool_input: parsed.tool_call.input ? JSON.stringify(parsed.tool_call.input) : '',
+                tool_result: '',
+                tool_elapsed: '',
+              });
+              self.scrollToBottom();
+              return;
+            }
+            // tool_result 事件：工具调用结束
+            if (parsed.tool_result) {
+              var lastTool = null;
+              for (var j = self.messages.length - 1; j >= 0; j--) {
+                if (self.messages[j].role === 'tool') { lastTool = self.messages[j]; break; }
+              }
+              if (lastTool) {
+                lastTool.tool_result = typeof parsed.tool_result === 'string' ? parsed.tool_result : JSON.stringify(parsed.tool_result);
+                if (self.toolStartTime) lastTool.tool_elapsed = ((Date.now() - self.toolStartTime) / 1000).toFixed(1);
+              }
+              self.scrollToBottom();
+              return;
+            }
+            // text 事件：流式文本内容
+            if (parsed.text !== undefined) {
+              self.streamContent += parsed.text;
+              self.messages[aiIdx].content = self.streamContent;
+              self.scrollToBottom();
+              return;
+            }
+            // done 事件
+            if (parsed.event === 'done' || parsed.done) {
+              self.finishStream(aiIdx);
+              return;
+            }
+            // 兼容：如果 data 中有 content 字段
+            if (parsed.content) {
+              self.streamContent += parsed.content;
+              self.messages[aiIdx].content = self.streamContent;
+              self.scrollToBottom();
+            }
+          } catch (e) {
+            // 非 JSON，当作纯文本追加
+            self.streamContent += dataStr;
+            self.messages[aiIdx].content = self.streamContent;
+            self.scrollToBottom();
+          }
+        },
+        onError: function (err) {
+          console.error('SSE error:', err);
+          self.agentStatus = '';
+          if (!self.streamContent) {
+            self.messages[aiIdx].content = '连接中断，请点击重试';
+          }
+          self.streaming = false;
+        },
+        onDone: function () {
+          self.finishStream(aiIdx);
+        },
+      });
+    },
+
+    finishStream(aiIdx) {
+      this.agentStatus = '';
+      this.streaming = false;
+      if (this.streamContent) {
+        this.currentConvId = this.currentConvId || ('conv_' + Date.now());
+        this.saveCurrentConversation();
+      }
+      this.$nextTick(() => {
+        var area = this.$refs.chatArea;
+        if (area) ChemUI.renderChemContent(area);
+      });
+    },
+
+    // ---- 对话管理 ----
+    loadConversations() {
+      try {
+        var raw = localStorage.getItem('chemai_conversations');
+        this.conversations = raw ? JSON.parse(raw) : [];
+      } catch (e) { this.conversations = []; }
+    },
+    saveConversations() {
+      localStorage.setItem('chemai_conversations', JSON.stringify(this.conversations));
+    },
+    saveCurrentConversation() {
+      if (!this.currentConvId) {
+        this.currentConvId = 'conv_' + Date.now();
+      }
+      var title = '';
+      for (var i = 0; i < this.messages.length; i++) {
+        if (this.messages[i].role === 'user') { title = this.messages[i].content.slice(0, 30); break; }
+      }
+      title = title || '新对话';
+      var idx = -1;
+      for (var j = 0; j < this.conversations.length; j++) {
+        if (this.conversations[j].id === this.currentConvId) { idx = j; break; }
+      }
+      var conv = { id: this.currentConvId, title: title, messages: JSON.parse(JSON.stringify(this.messages)), updated_at: new Date().toISOString() };
+      if (idx >= 0) this.conversations.splice(idx, 1, conv);
+      else this.conversations.unshift(conv);
+      this.saveConversations();
+    },
+    async loadConversation(id) {
+      var conv = null;
+      for (var i = 0; i < this.conversations.length; i++) {
+        if (this.conversations[i].id === id) { conv = this.conversations[i]; break; }
+      }
+      if (!conv) return;
+      this.currentConvId = id;
+      this.messages = JSON.parse(JSON.stringify(conv.messages));
+      this.sidebarOpen = false;
+
+      // 尝试从服务端加载历史
+      try {
+        var res = await ChemAPI.get('/api/chat/history/' + id);
+        if (res && res.messages && res.messages.length > 0) {
+          this.messages = res.messages.map(function (m) {
+            return { role: m.role === 'assistant' ? 'ai' : m.role, content: m.content || '' };
+          });
+        }
+      } catch (e) { /* 本地历史兜底 */ }
+
+      this.$nextTick(() => {
+        var area = this.$refs.chatArea;
+        if (area) {
+          area.scrollTop = area.scrollHeight;
+          ChemUI.renderChemContent(area);
+        }
+      });
+    },
+    newConversation() {
+      this.currentConvId = '';
+      this.messages = [];
+      this.streamContent = '';
+      this.agentStatus = '';
+      if (this.sseClient) { this.sseClient.close(); this.sseClient = null; }
+      this.streaming = false;
+    },
+    doLogout() {
+      ChemAPI.logout();
+    },
+
+    // ---- 辅助 ----
+    autoResize() {
+      var el = this.$refs.inputEl;
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    },
+    onEnter(e) {
+      if (e.shiftKey) return;
+      this.sendMessage();
+    },
+    scrollToBottom() {
+      this.$nextTick(() => {
+        var area = this.$refs.chatArea;
+        if (area) area.scrollTop = area.scrollHeight;
+      });
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
