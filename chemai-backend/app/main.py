@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
         wrong_router,
         parent_auth_router,
         parent_router,
+        chat_router,
     )
 
     app.include_router(auth_router)
@@ -78,6 +79,7 @@ def create_app() -> FastAPI:
     app.include_router(student_router)
     app.include_router(parent_auth_router)
     app.include_router(parent_router)
+    app.include_router(chat_router)
 
     # ── 启动事件 ────────────────────────────────
     @app.on_event("startup")

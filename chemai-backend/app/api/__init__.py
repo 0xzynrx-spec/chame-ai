@@ -19,6 +19,7 @@ from app.api.ocr import router as ocr_router
 from app.api.grading import router as grading_router
 from app.api.student import router as student_router
 from app.api.parent import auth_router as parent_auth_router, router as parent_router
+from app.api.chat import router as chat_router
 
 __all__ = [
     "auth_router",
@@ -41,4 +42,5 @@ __all__ = [
     "student_router",
     "parent_auth_router",
     "parent_router",
+    "chat_router",
 ]
