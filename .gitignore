@@ -17,3 +17,4 @@ chemai-backend/data/uploads/
 # gstack / graphify 生成物
 graphify-out/
 .gstack/
+.env
