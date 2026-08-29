@@ -40,6 +40,11 @@ class Student(Base, TimestampMixin):
         Text, default="", comment="学习计划 JSON 内容"
     )
 
+    # 学情特点（JSON 格式）
+    learning_traits: Mapped[str] = mapped_column(
+        Text, default="", comment="学情特点 JSON 内容"
+    )
+
     # 练习追踪
     total_practice_count: Mapped[int] = mapped_column(
         Integer, default=0, comment="累计完成练习数"

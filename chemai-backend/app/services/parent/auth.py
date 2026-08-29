@@ -30,7 +30,7 @@ def parent_register(
     password: str,
     bind_code: str,
     name: str = "",
-    relation_type: str = "parent",
+    relation_type: str = "guardian",
 ) -> dict:
     """家长注册与绑定原子操作
 

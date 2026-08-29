@@ -35,8 +35,8 @@ from app.services.parent.notification import (
     mark_all_read,
 )
 from app.services.parent.weekly_report import generate_weekly_report
-from app.utils.jwt import decode_token
-from app.utils.schemas import LoginRequest
+from app.utils.deps import get_current_user
+from app.utils.schemas import UserContext
 
 # ── 认证路由 ─────────────────────────────────────────
 
@@ -50,7 +50,7 @@ def register(body: dict, db: Session = Depends(get_db)):
     password = body.get("password", "")
     bind_code = body.get("bind_code", "")
     name = body.get("name", "")
-    relation_type = body.get("relation_type", "parent")
+    relation_type = body.get("relation_type", "guardian")
 
     if not phone or not password or not bind_code:
         raise HTTPException(
@@ -95,21 +95,14 @@ def login(body: dict, db: Session = Depends(get_db)):
 router = APIRouter(prefix="/api/parent", tags=["家长端"])
 
 
-def _get_current_parent(db: Session, token: str) -> Parent:
-    """从 JWT token 获取当前家长"""
-    try:
-        payload = decode_token(token)
-        if payload.get("role") != "parent":
-            raise HTTPException(status_code=403, detail={"detail": "权限不足", "error_code": "PERMISSION_DENIED"})
-        parent_id = payload.get("entity_id")
-        parent = db.query(Parent).filter(Parent.id == parent_id).first()
-        if not parent:
-            raise HTTPException(status_code=404, detail={"detail": "家长不存在", "error_code": "NOT_FOUND"})
-        return parent
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(status_code=401, detail={"detail": "Token 无效", "error_code": "AUTHENTICATION_REQUIRED"})
+def _get_current_parent(db: Session, current_user: UserContext) -> Parent:
+    """从 UserContext 获取当前家长"""
+    if current_user.role != "parent":
+        raise HTTPException(status_code=403, detail={"detail": "权限不足", "error_code": "PERMISSION_DENIED"})
+    parent = db.query(Parent).filter(Parent.id == current_user.entity_id).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail={"detail": "家长不存在", "error_code": "NOT_FOUND"})
+    return parent
 
 
 def _verify_binding(db: Session, parent_id: str, student_id: str) -> None:
@@ -133,19 +126,26 @@ def _verify_binding(db: Session, parent_id: str, student_id: str) -> None:
 # ── 绑定管理 ─────────────────────────────────────────
 
 @router.get("/children")
-def list_children(token: str, db: Session = Depends(get_db)):
+def list_children(
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """查询已绑定学生列表"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     children = get_children(db, parent.id)
     return {"success": True, "data": children}
 
 
 @router.post("/bind")
-def bind(body: dict, token: str, db: Session = Depends(get_db)):
+def bind(
+    body: dict,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """绑定学生"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     bind_code = body.get("bind_code", "")
-    relation_type = body.get("relation_type", "parent")
+    relation_type = body.get("relation_type", "guardian")
 
     if not bind_code:
         raise HTTPException(
@@ -164,9 +164,13 @@ def bind(body: dict, token: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/bind/{binding_id}")
-def unbind(binding_id: str, token: str, db: Session = Depends(get_db)):
+def unbind(
+    binding_id: str,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """解绑学生"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     try:
         unbind_student(db, parent.id, binding_id)
         return {"success": True, "message": "解绑成功"}
@@ -185,9 +189,13 @@ def unbind(binding_id: str, token: str, db: Session = Depends(get_db)):
 # ── 总览 ─────────────────────────────────────────
 
 @router.get("/overview")
-def overview(student_id: str, token: str, db: Session = Depends(get_db)):
+def overview(
+    student_id: str,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """总览数据"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     _verify_binding(db, parent.id, student_id)
 
     try:
@@ -201,9 +209,13 @@ def overview(student_id: str, token: str, db: Session = Depends(get_db)):
 # ── 学情报告 ─────────────────────────────────────────
 
 @router.get("/learning-report")
-def learning_report(student_id: str, token: str, db: Session = Depends(get_db)):
+def learning_report(
+    student_id: str,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """学情报告"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     _verify_binding(db, parent.id, student_id)
 
     try:
@@ -218,22 +230,26 @@ def learning_report(student_id: str, token: str, db: Session = Depends(get_db)):
 
 @router.get("/notifications")
 def list_notifications(
-    token: str,
     type: str = Query(None, description="通知类型筛选"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    current_user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """通知列表"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     result = get_notifications(db, parent.id, type, page, page_size)
     return {"success": True, "data": result}
 
 
 @router.get("/notifications/{notification_id}")
-def get_notification(notification_id: str, token: str, db: Session = Depends(get_db)):
+def get_notification(
+    notification_id: str,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """通知详情"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     try:
         notification = get_notification_by_id(db, parent.id, notification_id)
         if not notification:
@@ -244,17 +260,24 @@ def get_notification(notification_id: str, token: str, db: Session = Depends(get
 
 
 @router.put("/notifications/{notification_id}/read")
-def read_notification(notification_id: str, token: str, db: Session = Depends(get_db)):
+def read_notification(
+    notification_id: str,
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """标记已读"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     mark_read(db, parent.id, notification_id)
     return {"success": True, "message": "标记成功"}
 
 
 @router.put("/notifications/read-all")
-def read_all_notifications(token: str, db: Session = Depends(get_db)):
+def read_all_notifications(
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """批量标记已读"""
-    parent = _get_current_parent(db, token)
+    parent = _get_current_parent(db, current_user)
     mark_all_read(db, parent.id)
     return {"success": True, "message": "全部标记成功"}
 
@@ -262,10 +285,17 @@ def read_all_notifications(token: str, db: Session = Depends(get_db)):
 # ── 周报 ─────────────────────────────────────────
 
 @router.post("/weekly-report/generate")
-def gen_weekly_report(body: dict, token: str, db: Session = Depends(get_db)):
+def gen_weekly_report(
+    body: dict,
+    student_id: str = Query(None, description="学生 ID（兼容 query param 和 body）"),
+    current_user: UserContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """生成周报"""
-    parent = _get_current_parent(db, token)
-    student_id = body.get("student_id", "")
+    parent = _get_current_parent(db, current_user)
+    # 兼容 query param 和 body 两种传参方式
+    if not student_id:
+        student_id = body.get("student_id", "")
 
     if not student_id:
         raise HTTPException(
