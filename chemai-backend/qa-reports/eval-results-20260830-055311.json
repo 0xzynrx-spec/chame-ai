@@ -1,0 +1,18 @@
+{
+  "track": "pytest",
+  "tier": "all",
+  "timestamp": "2026-08-30T05:53:11.312020+00:00",
+  "deterministic": null,
+  "llm_judge": null,
+  "pytest": {
+    "track": "pytest",
+    "passed": 519,
+    "failed": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "duration_s": 170.8
+  },
+  "total_passed": 0,
+  "total_failed": 0,
+  "total_errors": 0
+}

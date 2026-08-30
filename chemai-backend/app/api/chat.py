@@ -1,10 +1,10 @@
 """ChemAI Backend — AI 聊天 SSE 端点
 
-POST /api/chat/langgraph/stream — 流式对话（SSE）
+POST /api/chat/langgraph/stream — 流式对话（SSE，基于 LangGraph Agent）
 """
 
 import json
-import asyncio
+import uuid
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -17,26 +17,6 @@ from app.utils.schemas import UserContext
 
 router = APIRouter(prefix="/api/chat", tags=["AI 聊天"])
 
-# 家长角色系统提示词
-PARENT_SYSTEM_PROMPT = """你是 ChemAI 的 AI 学习顾问，专为家长服务。你的职责：
-- 解读孩子的学习报告、薄弱知识点
-- 提供家庭辅导建议
-- 解答家长关于孩子学习进度的疑问
-- 用通俗易懂的中文回答，避免专业术语
-- 回答简洁，控制在 200 字以内"""
-
-
-def _build_context(student: Student | None) -> str:
-    """根据学生信息构建上下文"""
-    if not student:
-        return ""
-    parts = [f"当前查看的学生：{student.name}"]
-    if student.learning_traits:
-        parts.append(f"学情特点：{student.learning_traits[:200]}")
-    if student.learning_plan:
-        parts.append(f"学习计划：{student.learning_plan[:200]}")
-    return "\n".join(parts)
-
 
 @router.post("/langgraph/stream")
 async def chat_stream(
@@ -44,14 +24,14 @@ async def chat_stream(
     current_user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """SSE 流式对话端点"""
+    """SSE 流式对话端点（LangGraph Agent）"""
     message = body.get("message", "").strip()
     student_id = body.get("student_id", "")
 
     if not message:
         async def empty_error():
-            yield f"data: {json.dumps({'content': '请输入您的问题'})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'code': 'EMPTY_MESSAGE', 'message': '请输入您的问题', 'recoverable': False})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return StreamingResponse(empty_error(), media_type="text/event-stream")
 
     # 查询学生上下文
@@ -59,52 +39,60 @@ async def chat_stream(
     if student_id:
         student = db.query(Student).filter(Student.id == student_id).first()
 
-    context = _build_context(student)
+    # 构建系统提示词
+    system_parts = ["你是 ChemAI 的 AI 化学辅导老师，用苏格拉底式引导帮助学生理解化学概念。"]
+    if student:
+        system_parts.append(f"当前学生：{student.name}")
+        if student.learning_traits:
+            system_parts.append(f"学情特点：{student.learning_traits[:200]}")
+
+    system_prompt = "\n".join(system_parts)
+
+    # 生成 thread_id（用户+学生维度隔离）
+    thread_id = f"user_{current_user.user_id}_student_{student_id or 'none'}_{uuid.uuid4().hex[:8]}"
+
+    # 构建消息
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": message},
+    ]
+
+    # 上下文裁剪（Memory 层——推理时执行，不影响 Checkpointer 存储）
+    from agent.memory import trim_context
+    messages = trim_context(messages)
+
+    # Gateway 意图分类
+    from agent.gateway import classify_intent, Intent
+    intent_result = classify_intent(message)
 
     async def generate():
         """SSE 流式生成"""
-        try:
-            import dashscope
-        except ImportError:
-            yield f"data: {json.dumps({'content': 'AI 服务不可用（dashscope 未安装）'})}\n\n"
-            yield "data: [DONE]\n\n"
+
+        # navigate 快捷路径——跳过 Agent
+        if intent_result.intent == Intent.NAVIGATE:
+            yield f"data: {json.dumps({'type': 'navigate', 'target': intent_result.target}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
-        from app.config import settings
+        # chat 路径——进入 ReAct Agent
+        from agent.agent import create_chemai_agent
+        from agent.tools.chemistry_tutor import chemistry_tutor
+        from agent.guard import wrap_tool_with_guard
+        from agent.channel.sse_adapter import stream_agent_events
 
-        system_msg = PARENT_SYSTEM_PROMPT
-        if context:
-            system_msg += f"\n\n{context}"
+        # Guard 工具包装（四层护栏 + 字段剥离）
+        guarded_tools = [wrap_tool_with_guard(chemistry_tutor, thread_id)]
 
-        messages = [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": message},
-        ]
+        # 创建 Agent 实例
+        agent = create_chemai_agent(
+            tools=guarded_tools,
+            system_prompt=system_prompt,
+        )
 
-        try:
-            resp = dashscope.Generation.call(
-                model=settings.dashscope_model,
-                messages=messages,
-                stream=True,
-                incremental_output=True,
-                result_format="message",
-                temperature=0.7,
-                max_tokens=500,
-                api_key=settings.dashscope_api_key or None,
-            )
+        config = {"configurable": {"thread_id": thread_id}}
 
-            for chunk in resp:
-                if hasattr(chunk, "output") and chunk.output:
-                    choices = chunk.output.get("choices", [])
-                    if choices:
-                        content = choices[0].get("message", {}).get("content", "")
-                        if content:
-                            yield f"data: {json.dumps({'content': content})}\n\n"
-
-        except Exception as e:
-            yield f"data: {json.dumps({'content': f'AI 服务暂时不可用：{str(e)[:100]}'})}\n\n"
-
-        yield "data: [DONE]\n\n"
+        async for event in stream_agent_events(agent, messages, config):
+            yield event
 
     return StreamingResponse(
         generate(),
