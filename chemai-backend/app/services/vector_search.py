@@ -87,49 +87,65 @@ def build_question_text(question: object) -> str:
     return " ".join(parts)
 
 
-def add_question_vector(question_id: str, text: str) -> bool:
+def _upsert_vector(
+    question_id: str,
+    text: str,
+    knowledge_points: Optional[list[str]] = None,
+) -> bool:
+    """内部方法：删除旧向量后插入新向量（upsert 语义）"""
+    try:
+        collection = get_collection()
+        try:
+            collection.delete(ids=[question_id])
+        except Exception:
+            pass
+
+        metadata = {}
+        if knowledge_points:
+            metadata["knowledge_points"] = ",".join(knowledge_points)
+
+        collection.add(
+            ids=[question_id],
+            documents=[text],
+            metadatas=[metadata] if metadata else None,
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to upsert vector for question {question_id}: {e}")
+        return False
+
+
+def add_question_vector(
+    question_id: str,
+    text: str,
+    knowledge_points: Optional[list[str]] = None,
+) -> bool:
     """将题目向量添加到 ChromaDB
 
     Args:
         question_id: 题目 ID
         text: 题目文本（题干 + 答案 + 解析）
+        knowledge_points: 可选，知识点标签列表（存入 metadata 用于过滤）
 
     Returns:
         True 如果成功，False 如果失败（不抛异常）
     """
-    try:
-        collection = get_collection()
-        # 先删除旧记录（如存在）
-        try:
-            collection.delete(ids=[question_id])
-        except Exception:
-            pass
-        collection.add(
-            ids=[question_id],
-            documents=[text],
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Failed to add vector for question {question_id}: {e}")
-        return False
+    return _upsert_vector(question_id, text, knowledge_points)
 
 
-def update_question_vector(question_id: str, text: str) -> bool:
-    """更新题目向量（upsert 语义）"""
-    try:
-        collection = get_collection()
-        try:
-            collection.delete(ids=[question_id])
-        except Exception:
-            pass
-        collection.add(
-            ids=[question_id],
-            documents=[text],
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Failed to update vector for question {question_id}: {e}")
-        return False
+def update_question_vector(
+    question_id: str,
+    text: str,
+    knowledge_points: Optional[list[str]] = None,
+) -> bool:
+    """更新题目向量（upsert 语义）
+
+    Args:
+        question_id: 题目 ID
+        text: 题目文本（题干 + 答案 + 解析）
+        knowledge_points: 可选，知识点标签列表
+    """
+    return _upsert_vector(question_id, text, knowledge_points)
 
 
 def delete_question_vector(question_id: str) -> bool:
@@ -148,6 +164,7 @@ def search_similar(
     limit: int = 10,
     min_score: float = 0.0,
     filter_ids: Optional[list[str]] = None,
+    knowledge_points: Optional[list[str]] = None,
 ) -> list[dict]:
     """语义相似度搜索
 
@@ -156,9 +173,10 @@ def search_similar(
         limit: 返回结果数量上限（最大 50）
         min_score: 最低相似度阈值（0-1）
         filter_ids: 可选，仅在这些 ID 中搜索（用于学校隔离）
+        knowledge_points: 可选，按知识点标签过滤（后置过滤）
 
     Returns:
-        列表，每项含 id、score、document
+        列表，每项含 id、score、document、knowledge_points
     """
     limit = min(limit, 50)
     try:
@@ -168,15 +186,20 @@ def search_similar(
             # ChromaDB 不支持任意 ID 列表过滤，改由后置过滤
             pass
 
+        # 多取一些用于后置过滤
+        n_results = limit * 3 if (filter_ids or knowledge_points) else limit
+
         results = collection.query(
             query_texts=[query_text],
-            n_results=limit * 2 if filter_ids else limit,  # 多取一些用于后置过滤
+            n_results=n_results,
+            include=["documents", "metadatas"],
         )
 
         items = []
         ids = results.get("ids", [[]])[0]
         distances = results.get("distances", [[]])[0]
         documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
 
         for i, doc_id in enumerate(ids):
             # 后置 ID 过滤
@@ -188,10 +211,22 @@ def search_similar(
             if score < min_score:
                 continue
 
+            # 提取知识点标签（从 metadata 中）
+            metadata = metadatas[i] if i < len(metadatas) else {}
+            doc_kps = metadata.get("knowledge_points", [])
+            if isinstance(doc_kps, str):
+                doc_kps = [k.strip() for k in doc_kps.split(",") if k.strip()]
+
+            # 知识点后置过滤
+            if knowledge_points:
+                if not any(kp in doc_kps for kp in knowledge_points):
+                    continue
+
             items.append({
                 "id": doc_id,
                 "score": round(score, 4),
                 "document": documents[i] if i < len(documents) else "",
+                "knowledge_points": doc_kps,
             })
 
         # 按相似度降序并截取

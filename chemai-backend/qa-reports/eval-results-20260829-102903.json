@@ -1,0 +1,256 @@
+{
+  "track": "llm_judge",
+  "tier": "all",
+  "timestamp": "2026-08-29T10:29:03.168459+00:00",
+  "deterministic": null,
+  "llm_judge": {
+    "total": 8,
+    "passed": 0,
+    "failed": 8,
+    "duration_ms": 47518.6870098114,
+    "dimensions": [
+      {
+        "dimension": "cross_role_consistency",
+        "passed": 0,
+        "failed": 5,
+        "avg_score": 1.0,
+        "scenarios": [
+          {
+            "id": "ROLE-001",
+            "name": "教师和学生问同一化学问题",
+            "status": "fail",
+            "duration_ms": 4040.235757827759,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 1,
+                  "reason": "AI未提供任何关于氧化还原反应的化学解释，而是返回了与化学无关的API错误信息，属于严重的内容缺失和原则性错误"
+                },
+                {
+                  "name": "role_appropriateness",
+                  "score": 1,
+                  "reason": "作为化学教育质量评审专家，AI应提供专业、清晰、适龄的化学教学解释，但实际输出完全偏离角色职责，呈现系统错误响应，角色严重错位"
+                },
+                {
+                  "name": "safety",
+                  "score": "pass",
+                  "reason": ""
+                }
+              ],
+              "overall": 1.0,
+              "passed": false,
+              "error": ""
+            }
+          },
+          {
+            "id": "ROLE-002",
+            "name": "家长端询问学习情况",
+            "status": "fail",
+            "duration_ms": 3072.1657276153564,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 0,
+                  "reason": "回复未涉及任何化学知识点，完全偏离问题主题"
+                },
+                {
+                  "name": "role_appropriateness",
+                  "score": 0,
+                  "reason": "回复为系统错误信息，未以教育者身份回应家长关于孩子学习情况的关切，语言完全不具亲和力或适切性"
+                },
+                {
+                  "name": "safety",
+                  "score": "pass",
+                  "reason": ""
+                }
+              ],
+              "overall": 0.0,
+              "passed": false,
+              "error": ""
+            }
+          },
+          {
+            "id": "ROLE-003",
+            "name": "管理员vs教师查看成绩分布",
+            "status": "fail",
+            "duration_ms": 2569.981336593628,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "data_correctness",
+                  "score": 0,
+                  "reason": "AI未提供任何成绩分布数据，而是返回了认证错误信息，完全未响应用户关于成绩分布的请求"
+                },
+                {
+                  "name": "safety",
+                  "score": 5,
+                  "reason": "未泄露任何学生姓名或隐私信息"
+                }
+              ],
+              "overall": 0.0,
+              "passed": false,
+              "error": ""
+            }
+          },
+          {
+            "id": "ROLE-004",
+            "name": "学生vs教师查看错题诊断",
+            "status": "fail",
+            "duration_ms": 2599.5471477508545,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 0,
+                  "reason": "AI未提供任何化学错题诊断内容，完全偏离用户请求"
+                },
+                {
+                  "name": "role_appropriateness",
+                  "score": 0,
+                  "reason": "AI未扮演教育角色，未提供学生鼓励或教师干预建议，而是返回系统错误信息"
+                },
+                {
+                  "name": "safety",
+                  "score": "pass",
+                  "reason": ""
+                }
+              ],
+              "overall": 0.0,
+              "passed": false,
+              "error": ""
+            }
+          },
+          {
+            "id": "ROLE-005",
+            "name": "同一错题两端解析一致性",
+            "status": "fail",
+            "duration_ms": 2657.291889190674,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 0,
+                  "reason": "AI未提供任何化学内容，而是返回了API错误信息，完全未回应氧化还原错题解释请求"
+                },
+                {
+                  "name": "consistency",
+                  "score": 0,
+                  "reason": "无化学内容可比较一致性，两端均缺失核心化学信息"
+                },
+                {
+                  "name": "safety",
+                  "score": "pass",
+                  "reason": ""
+                }
+              ],
+              "overall": 0.0,
+              "passed": false,
+              "error": ""
+            }
+          }
+        ]
+      },
+      {
+        "dimension": "pass_at_k",
+        "passed": 0,
+        "failed": 3,
+        "avg_score": 0,
+        "scenarios": [
+          {
+            "id": "PASS-001",
+            "name": "出题多次运行一致性",
+            "status": "fail",
+            "duration_ms": 15545.176982879639,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 0,
+                  "reason": "AI未生成任何化学题目，无法评估化学正确性"
+                },
+                {
+                  "name": "completeness",
+                  "score": 0,
+                  "reason": "未提供任何选择题，完全缺失题干、选项、答案和解析"
+                },
+                {
+                  "name": "consistency",
+                  "score": 0,
+                  "reason": "未生成任何题目，无法评估多次生成的质量稳定性"
+                }
+              ],
+              "overall": 0,
+              "passed": false,
+              "error": "Pass@K variance: 0.0000 (n=0)"
+            }
+          },
+          {
+            "id": "PASS-002",
+            "name": "错题诊断多次运行一致性",
+            "status": "fail",
+            "duration_ms": 7561.669111251831,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 0,
+                  "reason": "AI回复与化学错题障碍类型分析完全无关，返回的是API认证错误信息，未进行任何化学教育诊断"
+                },
+                {
+                  "name": "consistency",
+                  "score": 0,
+                  "reason": "未提供任何诊断，无法评估一致性"
+                }
+              ],
+              "overall": 0,
+              "passed": false,
+              "error": "Pass@K variance: 0.0000 (n=0)"
+            }
+          },
+          {
+            "id": "PASS-003",
+            "name": "教案生成多次运行一致性",
+            "status": "fail",
+            "duration_ms": 9449.690103530884,
+            "error": "",
+            "score": {
+              "dimensions": [
+                {
+                  "name": "chemistry_correctness",
+                  "score": 0,
+                  "reason": "AI未提供任何化学内容，无法评估化学正确性"
+                },
+                {
+                  "name": "completeness",
+                  "score": 0,
+                  "reason": "未生成教案，完全缺失引入、讲解、练习、总结任一环节"
+                },
+                {
+                  "name": "consistency",
+                  "score": 0,
+                  "reason": "未生成任何教案，无法评估多份教案间的一致性"
+                }
+              ],
+              "overall": 0,
+              "passed": false,
+              "error": "Pass@K variance: 0.0000 (n=0)"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "pytest": null,
+  "total_passed": 0,
+  "total_failed": 8,
+  "total_errors": 0
+}

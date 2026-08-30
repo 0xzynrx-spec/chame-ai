@@ -25,12 +25,16 @@ class ToolMeta:
 # 工具元数据注册表
 TOOL_META: dict[str, ToolMeta] = {
     # 出题工具
+    "search_question_bank": ToolMeta("search_question_bank", "题库语义搜索", "question", ["teacher", "student", "tutor"]),
+    "search_web_questions": ToolMeta("search_web_questions", "联网搜索题目", "question", ["teacher", "student", "tutor"]),
     "generate_question": ToolMeta("generate_question", "生成单道题目", "question", ["teacher", "tutor"]),
     "generate_exam": ToolMeta("generate_exam", "生成完整试卷", "question", ["teacher"]),
-    "adapt_difficulty": ToolMeta("adapt_difficulty", "调整题目难度", "question", ["teacher", "tutor"]),
     "batch_generate": ToolMeta("batch_generate", "批量生成题目", "question", ["teacher"]),
     "smart_recommend": ToolMeta("smart_recommend", "智能推荐题目", "question", ["teacher", "tutor"]),
     "generate_variant": ToolMeta("generate_variant", "生成变式题", "question", ["teacher", "tutor"]),
+    "save_to_bank": ToolMeta("save_to_bank", "保存题目到题库", "question", ["teacher", "tutor"]),
+    "list_questions": ToolMeta("list_questions", "题库列表查询", "question", ["teacher", "tutor"]),
+    "delete_question": ToolMeta("delete_question", "删除题库题目", "question", ["teacher"]),
     "export_exam_docx": ToolMeta("export_exam_docx", "导出试卷为 Word", "question", ["teacher"]),
     # 诊断工具
     "analyze_errors": ToolMeta("analyze_errors", "分析错误类型", "diagnosis", ["teacher", "tutor"]),

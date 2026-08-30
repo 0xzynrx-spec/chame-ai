@@ -1,0 +1,138 @@
+{
+  "track": "llm_judge",
+  "tier": "all",
+  "timestamp": "2026-08-29T10:25:32.815876+00:00",
+  "deterministic": null,
+  "llm_judge": {
+    "total": 8,
+    "passed": 0,
+    "failed": 8,
+    "duration_ms": 5481.935977935791,
+    "dimensions": [
+      {
+        "dimension": "cross_role_consistency",
+        "passed": 0,
+        "failed": 5,
+        "avg_score": 0,
+        "scenarios": [
+          {
+            "id": "ROLE-001",
+            "name": "教师和学生问同一化学问题",
+            "status": "fail",
+            "duration_ms": 580.7206630706787,
+            "error": "评分 LLM 调用失败: DashScope 返回 401",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "评分 LLM 调用失败: DashScope 返回 401"
+            }
+          },
+          {
+            "id": "ROLE-002",
+            "name": "家长端询问学习情况",
+            "status": "fail",
+            "duration_ms": 334.4249725341797,
+            "error": "评分 LLM 调用失败: DashScope 返回 401",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "评分 LLM 调用失败: DashScope 返回 401"
+            }
+          },
+          {
+            "id": "ROLE-003",
+            "name": "管理员vs教师查看成绩分布",
+            "status": "fail",
+            "duration_ms": 332.1795463562012,
+            "error": "评分 LLM 调用失败: DashScope 返回 401",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "评分 LLM 调用失败: DashScope 返回 401"
+            }
+          },
+          {
+            "id": "ROLE-004",
+            "name": "学生vs教师查看错题诊断",
+            "status": "fail",
+            "duration_ms": 325.2596855163574,
+            "error": "评分 LLM 调用失败: DashScope 返回 401",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "评分 LLM 调用失败: DashScope 返回 401"
+            }
+          },
+          {
+            "id": "ROLE-005",
+            "name": "同一错题两端解析一致性",
+            "status": "fail",
+            "duration_ms": 320.2700614929199,
+            "error": "评分 LLM 调用失败: DashScope 返回 401",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "评分 LLM 调用失败: DashScope 返回 401"
+            }
+          }
+        ]
+      },
+      {
+        "dimension": "pass_at_k",
+        "passed": 0,
+        "failed": 3,
+        "avg_score": 0,
+        "scenarios": [
+          {
+            "id": "PASS-001",
+            "name": "出题多次运行一致性",
+            "status": "fail",
+            "duration_ms": 1616.6760921478271,
+            "error": "",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "Pass@K variance: 0.0000 (n=0)"
+            }
+          },
+          {
+            "id": "PASS-002",
+            "name": "错题诊断多次运行一致性",
+            "status": "fail",
+            "duration_ms": 991.3158416748047,
+            "error": "",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "Pass@K variance: 0.0000 (n=0)"
+            }
+          },
+          {
+            "id": "PASS-003",
+            "name": "教案生成多次运行一致性",
+            "status": "fail",
+            "duration_ms": 958.9920043945312,
+            "error": "",
+            "score": {
+              "dimensions": [],
+              "overall": 0,
+              "passed": false,
+              "error": "Pass@K variance: 0.0000 (n=0)"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "pytest": null,
+  "total_passed": 0,
+  "total_failed": 8,
+  "total_errors": 0
+}
