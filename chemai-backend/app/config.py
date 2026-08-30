@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     dashscope_api_key: str = ""
     dashscope_model: str = "qwen-plus"
 
+    # LLM（Agent — DeepSeek）
+    llm_base_url: str = "https://api.deepseek.com"
+    llm_model: str = "deepseek-chat"
+    llm_api_key: str = ""
+
     # OCR（百度智能云）
     baidu_ocr_api_key: str = ""
     baidu_ocr_secret_key: str = ""
