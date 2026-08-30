@@ -1,8 +1,4 @@
-# tutoring-agent-tools Specification
-
-## Purpose
-提供 8 个苏格拉底式辅导 Agent 工具，支持学生通过自然语言获得化学知识辅导、实验模拟和方程式配平帮助。
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: ionic_equation_tutor 工具
 系统 SHALL 提供 `ionic_equation_tutor` Agent 工具，通过苏格拉底四步法辅导离子方程式书写，引导问题由 LLM 动态生成，感知学生画像个性化调整。
@@ -137,4 +133,3 @@
 #### Scenario: 掌握度检测
 - **WHEN** 学生回答后
 - **THEN** 系统评估回答正确性，决定是否推进到下一步或重复当前步骤
-

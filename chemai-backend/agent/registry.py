@@ -18,7 +18,7 @@ class ToolMeta:
     """工具元数据"""
     name: str
     description: str
-    category: str  # question/diagnosis/tutor/grading/memory/parent/browser
+    category: str  # question/diagnosis/tutor/ocr_grading/memory/review/parent/browser
     allowed_roles: list[str] = field(default_factory=lambda: ["teacher", "student", "tutor", "parent"])
 
 
@@ -31,7 +31,6 @@ TOOL_META: dict[str, ToolMeta] = {
     "generate_exam": ToolMeta("generate_exam", "生成完整试卷", "question", ["teacher"]),
     "batch_generate": ToolMeta("batch_generate", "批量生成题目", "question", ["teacher"]),
     "smart_recommend": ToolMeta("smart_recommend", "智能推荐题目", "question", ["teacher", "tutor"]),
-    "generate_variant": ToolMeta("generate_variant", "生成变式题", "question", ["teacher", "tutor"]),
     "save_to_bank": ToolMeta("save_to_bank", "保存题目到题库", "question", ["teacher", "tutor"]),
     "list_questions": ToolMeta("list_questions", "题库列表查询", "question", ["teacher", "tutor"]),
     "delete_question": ToolMeta("delete_question", "删除题库题目", "question", ["teacher"]),
@@ -54,13 +53,18 @@ TOOL_META: dict[str, ToolMeta] = {
     "chemistry_tutor": ToolMeta("chemistry_tutor", "通用化学辅导", "tutor", ["teacher", "student", "tutor"]),
     "simulate_experiment": ToolMeta("simulate_experiment", "模拟实验", "tutor", ["student", "tutor"]),
     "balance_equation": ToolMeta("balance_equation", "方程式配平", "tutor", ["tutor", "teacher"]),
-    # 批改工具
-    "grade_subjective": ToolMeta("grade_subjective", "批改主观题", "grading", ["teacher"]),
-    "batch_grade": ToolMeta("batch_grade", "批量批改", "grading", ["teacher"]),
-    "generate_rubric": ToolMeta("generate_rubric", "生成评分标准", "grading", ["teacher"]),
-    # 记忆工具
-    "save_learning_event": ToolMeta("save_learning_event", "保存学习事件", "memory", ["teacher", "tutor"]),
-    "retrieve_similar_events": ToolMeta("retrieve_similar_events", "检索相似事件", "memory", ["teacher", "tutor"]),
+    # OCR 批改工具（3个）
+    "query_ocr_progress": ToolMeta("query_ocr_progress", "查询OCR进度", "ocr_grading", ["teacher"]),
+    "grade_answer_sheets": ToolMeta("grade_answer_sheets", "批量批改答题卡", "ocr_grading", ["teacher"]),
+    "save_grading_results": ToolMeta("save_grading_results", "保存批改结果", "ocr_grading", ["teacher"]),
+    # 记忆工具（2个）
+    "memory_student_get": ToolMeta("memory_student_get", "读取学生记忆", "memory", ["teacher", "student", "tutor", "parent"]),
+    "memory_teacher_get": ToolMeta("memory_teacher_get", "读取教师记忆", "memory", ["teacher"]),
+    # 复习工具（4个，含 generate_variant）
+    "review_query": ToolMeta("review_query", "查询到期复习任务", "review", ["student", "teacher"]),
+    "review_submit": ToolMeta("review_submit", "提交复习结果", "review", ["student"]),
+    "wrong_question_list": ToolMeta("wrong_question_list", "错题列表", "review", ["student", "teacher"]),
+    "generate_variant": ToolMeta("generate_variant", "生成变式题", "review", ["student", "teacher"]),
     # 家长工具
     "generate_parent_report": ToolMeta("generate_parent_report", "生成家长报告", "parent", ["parent"]),
     "translate_to_parent_language": ToolMeta("translate_to_parent_language", "翻译为家长语言", "parent", ["parent"]),
