@@ -130,11 +130,17 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
       <span v-if="mode === 'login'" class="text-teal-accent cursor-pointer" @click="mode = 'register'">首次使用？填写绑定码注册</span>
       <span v-else class="text-teal-accent cursor-pointer" @click="mode = 'login'">已有账号？直接登录</span>
     </p>
+
+    <!-- 快捷入口 -->
+    <div class="mt-4 flex justify-center gap-6 text-xs text-text-secondary">
+      <a href="/pages/student/login.html" class="text-teal-accent hover:text-teal-hover">学生端</a>
+      <a href="/pages/teacher/login.html" class="text-teal-accent hover:text-teal-hover">教师端</a>
+    </div>
   </div>
 
   <!-- 版本号 -->
   <div class="absolute bottom-6 left-0 right-0 text-center">
-    <p class="text-xs text-gray-300">ChemAI v0.1.0</p>
+    <p class="text-xs text-gray-300">ChemAI v0.6.0</p>
   </div>
 </div>
 
