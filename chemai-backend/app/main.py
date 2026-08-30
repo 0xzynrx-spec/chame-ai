@@ -1,9 +1,15 @@
 """ChemAI Backend — FastAPI 应用入口"""
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+
+# 前端静态文件目录（相对于 chemai-backend/）
+_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "pages"
 
 
 def create_app() -> FastAPI:
@@ -141,6 +147,10 @@ def create_app() -> FastAPI:
             "service": "ChemAI Backend",
             "chromadb": chromadb_status,
         }
+
+    # ── 前端静态文件 ────────────────────────────────
+    if _FRONTEND_DIR.is_dir():
+        app.mount("/pages", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend-pages")
 
     return app
 
