@@ -108,42 +108,9 @@ class LLMService:
         return "\n".join(parts)
 
     def _call_model(self, prompt: str, strict: bool = False, max_tokens: int = 2000) -> str:
-        """调用 DashScope，返回模型原始文本输出"""
-        try:
-            import dashscope
-        except ImportError:
-            raise LLMServiceError("dashscope 未安装", retryable=False)
-
+        """调用 DashScope（诊断场景），返回模型原始文本输出"""
         system = SYSTEM_PROMPT + ("。只输出 JSON，不要任何解释。" if strict else "")
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ]
-
-        try:
-            resp = dashscope.Generation.call(
-                model=self.model,
-                messages=messages,
-                result_format="message",
-                temperature=0.3,
-                max_tokens=max_tokens,
-                api_key=settings.dashscope_api_key or None,
-            )
-        except Exception as e:
-            # 网络/超时等瞬时错误，可重试
-            raise LLMServiceError(f"DashScope 调用异常: {e}", retryable=True)
-
-        if getattr(resp, "status_code", None) != 200:
-            retryable = getattr(resp, "status_code", 500) in (429, 500, 502, 503, 504)
-            raise LLMServiceError(
-                f"DashScope 返回 {getattr(resp, 'status_code', '?')}: {getattr(resp, 'message', '')}",
-                retryable=retryable,
-            )
-
-        try:
-            return resp.output.choices[0].message.content
-        except (AttributeError, IndexError, KeyError) as e:
-            raise LLMServiceError(f"DashScope 响应结构异常: {e}", retryable=False)
+        return self._call_llm_raw(prompt, system=system, strict=False, max_tokens=max_tokens)
 
     def _parse(self, raw: str) -> DiagnosisResult:
         """解析 LLM 返回文本为 DiagnosisResult（三层鲁棒性）"""
@@ -352,3 +319,174 @@ class LLMService:
         text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
         text = re.sub(r"\s*```$", "", text)
         return text.strip()
+
+    # ── 学习计划生成 ─────────────────────────────────────────
+
+    # 障碍类型中文映射
+    _BARRIER_CN = {
+        "concept": "概念理解型-基础概念和原理掌握不扎实",
+        "reading": "审题障碍型-读题时容易忽略关键条件或掉入陷阱选项",
+        "expression": "表述障碍型-化学用语书写不规范或答题逻辑不清晰",
+    }
+
+    def generate_learning_plan(
+        self,
+        student_name: str,
+        barrier_type: str,
+        weak_knowledge_points: list[str],
+        recent_performance: str = "",
+    ) -> str:
+        """调用 LLM 生成个性化学习计划
+
+        Args:
+            student_name: 学生姓名
+            barrier_type: 障碍类型（concept/reading/expression）
+            weak_knowledge_points: 薄弱知识点列表
+            recent_performance: 近期表现数据（可选）
+
+        Returns:
+            学习计划文本
+
+        Raises:
+            LLMServiceError: 调用失败
+        """
+        barrier_cn = self._BARRIER_CN.get(barrier_type, "概念理解型-基础概念和原理掌握不扎实")
+        kps_str = "、".join(weak_knowledge_points) if weak_knowledge_points else "暂无"
+
+        prompt = f"""请为以下学生制定个性化化学学习计划：
+
+学生姓名：{student_name}
+障碍类型：{barrier_cn}
+薄弱知识点：{kps_str}
+近期表现：{recent_performance or "暂无数据"}
+
+要求：
+1. 知识点必须为高中化学内容
+2. 每日任务具体可执行
+3. 障碍干预结合化学学科特点
+4. 激励建议真诚不空洞
+
+请返回 JSON 格式：
+{{
+  "plan_title": "计划标题",
+  "duration_days": 7,
+  "daily_tasks": [
+    {{"day": 1, "tasks": ["具体任务1", "具体任务2"], "focus": "当日重点"}}
+  ],
+  "motivation": "激励建议"
+}}"""
+
+        system = "你是资深高中化学教师，在制定学习计划时始终围绕高考化学大纲和高中生的实际学习需求。"
+
+        last_error: LLMServiceError | None = None
+        for attempt in range(2):
+            strict = attempt > 0
+            try:
+                raw = self._call_llm_raw(prompt, system=system, strict=strict, max_tokens=4096)
+                return raw
+            except LLMServiceError as e:
+                last_error = e
+                if not e.retryable:
+                    break
+
+        raise LLMServiceError(
+            f"学习计划生成失败: {last_error.message if last_error else '未知错误'}",
+            retryable=False,
+        )
+
+    def weekly_report(
+        self,
+        student_name: str,
+        performance_data: dict,
+        barrier_info: dict,
+    ) -> str:
+        """调用 LLM 生成学生周报
+
+        Args:
+            student_name: 学生姓名
+            performance_data: 近期表现数据（正确率、练习量等）
+            barrier_info: 障碍信息（类型、分布等）
+
+        Returns:
+            200 字左右的周报文本
+
+        Raises:
+            LLMServiceError: 调用失败
+        """
+        barrier_type = barrier_info.get("dominant_barrier", "concept")
+        barrier_cn = self._BARRIER_CN.get(barrier_type, "概念理解型")
+        accuracy = performance_data.get("accuracy", 0)
+        practice_count = performance_data.get("practice_count", 0)
+
+        prompt = f"""请为以下学生的本周学习情况生成一份通俗易懂的周报：
+
+学生姓名：{student_name}
+本周练习量：{practice_count} 道题
+本周正确率：{accuracy:.0%}
+主要障碍：{barrier_cn}
+
+要求：
+1. 使用通俗语言，避免教育学术语
+2. 以鼓励为主，用"成长空间"代替"问题"
+3. 不制造焦虑
+4. 字数控制在 200 字左右
+5. 包含：本周表现总结、进步亮点、下一步建议
+
+请直接返回周报文本，不要返回 JSON。"""
+
+        system = "你是一位温暖的教育顾问，擅长用通俗易懂的语言向家长和学生汇报学习情况。"
+
+        last_error: LLMServiceError | None = None
+        for attempt in range(2):
+            strict = attempt > 0
+            try:
+                raw = self._call_llm_raw(prompt, system=system, strict=strict, max_tokens=2000)
+                return raw
+            except LLMServiceError as e:
+                last_error = e
+                if not e.retryable:
+                    break
+
+        raise LLMServiceError(
+            f"周报生成失败: {last_error.message if last_error else '未知错误'}",
+            retryable=False,
+        )
+
+    def _call_llm_raw(self, prompt: str, system: str = "", strict: bool = False, max_tokens: int = 2000) -> str:
+        """调用 LLM 并返回原始文本（用于非诊断场景）"""
+        try:
+            import dashscope
+        except ImportError:
+            raise LLMServiceError("dashscope 未安装", retryable=False)
+
+        if strict:
+            system = system + "。只输出要求的格式，不要任何解释。"
+
+        messages = [
+            {"role": "system", "content": system or "你是化学教育专家。"},
+            {"role": "user", "content": prompt},
+        ]
+
+        try:
+            resp = dashscope.Generation.call(
+                model=self.model,
+                messages=messages,
+                result_format="message",
+                temperature=0.3,
+                max_tokens=max_tokens,
+                api_key=settings.dashscope_api_key or None,
+            )
+        except Exception as e:
+            raise LLMServiceError(f"DashScope 调用异常: {e}", retryable=True)
+
+        if getattr(resp, "status_code", None) != 200:
+            retryable = getattr(resp, "status_code", 500) in (429, 500, 502, 503, 504)
+            raise LLMServiceError(
+                f"DashScope 返回 {getattr(resp, 'status_code', '?')}: {getattr(resp, 'message', '')}",
+                retryable=retryable,
+            )
+
+        try:
+            return resp.output.choices[0].message.content
+        except (AttributeError, IndexError, KeyError) as e:
+            raise LLMServiceError(f"DashScope 响应结构异常: {e}", retryable=False)
