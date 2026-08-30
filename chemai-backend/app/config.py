@@ -36,6 +36,7 @@ class Settings(BaseSettings):
         "/docs",
         "/redoc",
         "/openapi.json",
+        "/pages/",
     ]
 
     # LLM（通义千问 DashScope）
