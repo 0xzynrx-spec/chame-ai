@@ -8,14 +8,14 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Student
 from app.utils.deps import get_current_user
-from app.utils.schemas import UserContext
+from app.utils.schemas import ApproveRequest, ChatRequest, UserContext
 
 router = APIRouter(prefix="/api/chat", tags=["AI 聊天"])
 
@@ -33,13 +33,13 @@ def _blocked_response(message: str) -> StreamingResponse:
 
 @router.post("/langgraph/stream")
 async def chat_stream(
-    body: dict,
+    body: ChatRequest,
     current_user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """SSE 流式对话端点（LangGraph Agent）"""
-    message = body.get("message", "").strip()
-    student_id = body.get("student_id", "")
+    message = body.message.strip()
+    student_id = body.student_id
 
     if not message:
         async def empty_error():
@@ -199,7 +199,7 @@ async def chat_stream(
 
 @router.post("/approve")
 async def approve_tool_call(
-    body: dict,
+    body: ApproveRequest,
     current_user: UserContext = Depends(get_current_user),
 ):
     """审批工具调用——恢复或取消被拦截的破坏性操作
@@ -213,8 +213,8 @@ async def approve_tool_call(
     """
     from agent.guard import consume_approval_checkpoint
 
-    checkpoint_id = body.get("checkpoint_id", "")
-    approved = body.get("approved", False)
+    checkpoint_id = body.checkpoint_id
+    approved = body.approved
 
     if not checkpoint_id:
         async def err():
