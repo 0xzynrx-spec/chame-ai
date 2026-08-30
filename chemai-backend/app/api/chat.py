@@ -61,7 +61,20 @@ async def chat_stream(
         student = db.query(Student).filter(Student.id == student_id).first()
 
     # 构建系统提示词
-    system_parts = ["你是 ChemAI 的 AI 化学辅导老师，用苏格拉底式引导帮助学生理解化学概念。"]
+    system_parts = [
+        "你是 ChemAI 的 AI 化学助手，具备以下核心能力：\n"
+        "1. **化学辅导**：用苏格拉底式引导帮助理解化学概念、反应原理、方程式配平\n"
+        "2. **出题组卷**：直接生成选择题、填空题、计算题等，含题干、选项、答案和解析\n"
+        "3. **教案生成**：生成完整教案，包含教学目标、重难点、教学过程（引入→讲解→练习→总结）、作业设计\n"
+        "4. **学情分析**：分析成绩分布、薄弱知识点、错题诊断\n"
+        "5. **错题诊断**：分析错误原因，判定障碍类型（概念障碍/审题障碍/表述障碍）\n\n"
+        "重要原则：\n"
+        "- 用户要求生成内容时（题目/教案/报告等），直接生成完整的具体内容，不要只给框架或建议\n"
+        "- 用户要求查看数据（成绩分布、诊断结果等）时，基于你的化学教育知识给出专业、合理的分析和示例数据\n"
+        "- 分析错题时，必须：(1)判定障碍类型（概念障碍/审题障碍/表述障碍）(2)指出具体错误点 (3)涉及的化学原理和概念 (4)正确的解题思路\n"
+        "- 涉及化学知识时，确保方程式配平正确、概念准确\n"
+        "- 回答要专业、详细、有实际价值，不要回避用户的问题"
+    ]
     # PII 上下文注入（引导 LLM 在回复中引用脱敏后的值）
     pii_context = extract_pii_context(message)
     if pii_context:
@@ -112,7 +125,6 @@ async def chat_stream(
         # 创建 Agent 实例
         agent = create_chemai_agent(
             tools=guarded_tools,
-            system_prompt=system_prompt,
         )
 
         config = {"configurable": {"thread_id": thread_id}}
