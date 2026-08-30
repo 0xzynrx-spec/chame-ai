@@ -35,6 +35,11 @@ SCENARIO_TIMEOUT = 30  # 单场景超时（秒）
 class DeterministicRunner:
     """确定性评测执行器"""
 
+    # 共享配置（实例级可覆盖）
+    CHAT_ENDPOINT = CHAT_ENDPOINT
+    AUTH_HEADER = AUTH_HEADER
+    SCENARIO_TIMEOUT = SCENARIO_TIMEOUT
+
     def __init__(self, client, base_url: str = ""):
         self.client = client
         self.base_url = base_url
@@ -84,7 +89,7 @@ class DeterministicRunner:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(self._send_request, scenario)
                 try:
-                    response, status_code = future.result(timeout=SCENARIO_TIMEOUT)
+                    response, status_code = future.result(timeout=self.SCENARIO_TIMEOUT)
                 except concurrent.futures.TimeoutError:
                     result.status = Status.ERROR
                     result.error = f"场景执行超时（>{SCENARIO_TIMEOUT}s）"
@@ -128,9 +133,9 @@ class DeterministicRunner:
         user_input = scenario.input or ""
 
         response = self.client.post(
-            f"{self.base_url}{CHAT_ENDPOINT}",
+            f"{self.base_url}{self.CHAT_ENDPOINT}",
             json={"message": user_input},
-            headers=AUTH_HEADER,
+            headers=self.AUTH_HEADER,
         )
 
         return response.text or "", response.status_code

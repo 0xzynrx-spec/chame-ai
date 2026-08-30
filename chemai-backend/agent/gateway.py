@@ -1,6 +1,7 @@
 """ChemAI Agent — Gateway 意图分类器
 
 D7: 快速通道 + LLM 语义分类 + 关键词兜底
+前置安全拦截：危险内容检测
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from agent.provider import get_llm
+from agent.safety import is_dangerous_content
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 class Intent(str, Enum):
     CHAT = "chat"
     NAVIGATE = "navigate"
+    BLOCKED = "blocked"  # 危险内容拦截
     UNKNOWN = "unknown"
 
 
@@ -28,6 +31,7 @@ class IntentResult:
     intent: Intent
     confidence: float
     target: str = ""  # navigate 时的目标路径
+    block_reason: str = ""  # blocked 时的拦截原因
 
 
 # 导航关键词
@@ -84,8 +88,21 @@ def _llm_classify(message: str) -> IntentResult | None:
 def classify_intent(message: str) -> IntentResult:
     """分类用户意图
 
-    D7: 快速通道 — 无导航关键词 + 短消息 → 直接 chat
+    1. 前置安全检查：拦截危险内容
+    2. 快速通道 — 无导航关键词 + 短消息 → 直接 chat
+    3. LLM 语义分类
+    4. 关键词兜底
     """
+    # 前置安全检查
+    is_blocked, reason = is_dangerous_content(message)
+    if is_blocked:
+        logger.warning("危险内容拦截: %s", reason)
+        return IntentResult(
+            intent=Intent.BLOCKED,
+            confidence=1.0,
+            block_reason=reason,
+        )
+
     # 快速通道
     if len(message) < FAST_PATH_MAX_LENGTH and not NAVIGATE_KEYWORDS.search(message):
         return IntentResult(intent=Intent.CHAT, confidence=0.9)

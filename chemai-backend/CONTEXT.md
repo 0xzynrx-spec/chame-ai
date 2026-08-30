@@ -141,14 +141,54 @@
 
 ## 六、Agent 概念（Agent Concepts）
 
+### 6.1 核心架构
+
 | 术语 | 英文 | 定义 |
 |------|------|------|
-| 意图 | Intent | 用户输入的目标分类，决定后续路由策略。平台定义两种核心意图：**chat**（自由对话，由 Agent 直接回复）和 **navigate**（功能导航，跳转到特定工具页面）。 |
-| 单 Agent | Single Agent | 基于 LangGraph `create_react_agent` 构建的独立智能体，负责一个明确的对话或任务领域。 |
-| 工具 | Tool | Agent 可调用的功能单元，如"查询题库""生成试卷""诊断学生"等，定义在 `agent/tools/` 中。 |
-| 角色 | Persona | Agent 的应答人格，决定其语气、知识范围和权限。平台定义四种角色：**teacher**（教研助手）、**student**（化学助教-学生端）、**tutor**（化学助教-通用）、**parent**（家长助手）。每个 Persona 有独立的 YAML 配置（system_prompt + 工具白名单），工具集通过 YAML 白名单与 TOOL_META 注册表取交集过滤。 |
-| 护栏状态 | Guard State | Agent 运行时的安全边界标记，用于拦截不安全的输出（如未审核的题目答案、越权操作等）。 |
-| 网关 | Gateway | 请求入口的统一路由层，负责意图识别、角色路由、护栏检查、负载均衡和降级处理。 |
+| ReAct 循环 | ReAct Loop | Agent 的推理-执行循环：LLM 思考 → 选择工具 → 执行 → 观察结果 → 继续思考，直到生成最终回答。基于 LangGraph `create_agent` 实现，拓扑为 `start → model → tools → model → ...`。 |
+| 网关 | Gateway | 请求进入 Agent 前的意图分类器。采用 LLM 语义分类 + 关键词兜底的双路径设计，将用户输入分为 **chat**（进入 ReAct 循环）和 **navigate**（快捷路径，跳过 Agent 直接推送页面跳转事件）。_避免_: 路由层、负载均衡 |
+| 护栏 | Guard | Agent 的四层安全防护机制，每次工具调用都经过：前置检查（必填参数）→ 调用限制（频次上限）→ 去重（防循环）→ 审批门控（破坏性操作需教师确认）。每个 Agent 调用创建一个 Guard 实例。_避免_: 护栏状态（Guard 是机制，GuardState 是运行时实例） |
+| 工具 | Tool | Agent 可调用的功能单元，注册在 TOOL_META 元数据表中。每个工具包含：可用 Persona 列表、每轮最大调用次数 call_limit、前置条件、四段式描述（何时用/会发生什么/下一步/NOT for）。当前 30 个领域工具 + 5 个浏览器工具。 |
+| 角色 | Persona | Agent 的应答人格，通过 YAML 配置定义（system_prompt + 工具白名单 available_skills）。工具过滤取 YAML 白名单与 TOOL_META 注册表的交集，确保隔离。四种角色：**teacher**（教研助手，~18 工具）、**student**（化学助教，7 工具）、**tutor**（通用辅导，~12 工具）、**parent**（家长助手，2 工具）。_避免_: 角色、Agent 角色 |
+
+### 6.2 意图与规划
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| 意图 | Intent | 用户输入的目标分类。两种核心意图：**chat**（自由对话，进入 Agent）和 **navigate**（功能导航，走快捷路径跳过 Agent）。_避免_: 路由类型 |
+| 规划器 | Planner | 将复杂教学任务拆解为最多 6 步执行计划的组件。输出 Plan（目标 + PlanStep 列表），每步包含技能名、参数、依赖关系。支持 `${step_N.field}` 变量引用和依赖注入。验证失败时降级为单步 Plan。 |
+
+### 6.3 记忆与持久化
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| 工作记忆 | Working Memory | 当前对话的即时上下文，固定容量滑动窗口（最近 20 条消息），满时自动丢弃最旧消息。 |
+| 情景记忆 | Episodic Memory | 本次对话中提取的结构化事件（如诊断结果、考试记录），随请求销毁，不跨请求持久化。 |
+| 学生档案 | Student Profile | 跨请求持久化的学生画像数据（姓名、障碍分布、练习数），从数据库查询后以 System Message 注入消息列表。 |
+| 上下文裁剪 | Context Trimming | 对话消息超过 30 条时自动执行的裁剪策略：保留最近 6 条 + 关键词过滤历史消息 + LLM 摘要（≥10 条被丢弃时触发）。 |
+| 检查点 | Checkpoint | LangGraph 提供的对话状态持久化机制（AsyncSqliteSaver），服务重启后对话不丢失，支持审批中断恢复。 |
+
+### 6.4 外部集成
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| MCP 服务器 | MCP Server | Model Context Protocol 工具服务器，提供 `/api/mcp` 端点供外部系统调用 16 个工具。与 Agent 工具分工：Agent 工具由 LLM 在 ReAct 循环中自选，MCP 工具由外部系统通过 API 调用。 |
+| 审计日志 | Audit Log | JSONL 格式的技能执行记录，包含时间戳、Persona、技能名、参数、摘要、耗时。环形缓冲区保留最近 100 条，写入绝不阻塞主流程。 |
+| Provider 回退 | Provider Fallback | 三级 LLM 路由策略：首选 MiMo-V2.5（视觉+联网搜索）→ 备选 qwen-turbo（最快延迟 1.8s）→ 兜底 DeepSeek-V4-Flash（化学满分、成本最低）。每级 3 次重试 + 指数退避。 |
+
+### 6.5 SSE 协议
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| SSE 事件 | SSE Event | Agent 通过 HTTP 长连接推送给前端的结构化消息。10 种事件类型：**phase**（阶段切换）、**text**（流式文本）、**tool_call**（工具调用开始）、**tool_args**（流式参数）、**tool_result**（工具结果）、**component**（内联面板）、**navigate**（页面跳转）、**exam_images**（图片）、**done**（结束）、**error**（错误）。 |
+| 聊天运行时 | ChatRuntime | SSE 渲染架构的状态管理中间层，通过适配器模式对接不同传输协议（SSE/WebSocket/本地），维护对话状态并将事件分发给渲染器。_避免_: SSE 客户端 |
+| 消息组装器 | Message Assembler | 将 SSE 事件流拼接为 UIMessage 对象的组件。UIMessage 由 TextPart、ToolPart、ComponentPart 等交错排列，按时间顺序追加。 |
+
+### 设计文档参考
+
+- `30-Agent对话系统设计.md` — v1→v2 架构演进、30 工具目录、4 Persona 详情、Guard 四层护栏、Gateway 分类器、Planner、三层记忆、MCP 服务器、审计日志、错误处理
+- `38-技术选型与工具链.md` — LangGraph 选型理由（四轮迭代实测）、三级 Provider Fallback、技术栈完整选型
+- `41-Agent输出界面前端SSE渲染策略.md` — SSE 事件→渲染映射、ChatRuntime 架构、消息组装器、工具卡片生命周期、性能策略
 
 ---
 
@@ -300,9 +340,17 @@ chemai-backend/
 │   ├── middleware/              # 中间件（认证/日志/限流等）
 │   └── utils/                  # 通用工具函数
 ├── agent/                      # AI Agent 模块
-│   ├── tools/                  # Agent 可调用工具定义
-│   ├── channel/                # 多通道（Web/微信/钉钉）适配
-│   └── prompts/                # Agent 提示词模板
+│   ├── agent.py                # Agent 工厂函数（create_agent + Persona 过滤）
+│   ├── gateway.py              # Gateway 意图分类器（LLM + 关键词兜底）
+│   ├── guard.py                # Guard 四层护栏（前置→限流→去重→审批）
+│   ├── planner.py              # Planner 目标拆解（最多6步）
+│   ├── memory.py               # 三层记忆管理（工作/情景/学生档案）
+│   ├── registry.py             # TOOL_META 工具元数据注册表
+│   ├── audit.py                # 审计日志（JSONL）
+│   ├── errors.py               # 错误类型层次结构
+│   ├── tools/                  # 30 个领域工具实现
+│   ├── prompts/                # 4 套 Persona YAML + system prompt
+│   └── channel/                # SSE 适配器（ChatRuntime 传输层）
 ├── chem_skills/                # 化学领域技能模块
 │   ├── chemistry_exam/         # 出题 & 审核引擎
 │   ├── chemistry_diagnosis/    # 障碍诊断引擎

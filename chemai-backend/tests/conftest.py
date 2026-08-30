@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,33 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.models import Base, Class, Grade, Parent, School, Student, Teacher, Account
 from app.utils.jwt import create_access_token
 from app.utils.password import hash_password
+
+
+def make_mock_db(model_queries: dict[str, MagicMock]) -> MagicMock:
+    """创建按模型名路由查询的 mock DB session
+
+    用法：
+        mock_db = make_mock_db({
+            "Student": mock_student_query,
+            "StudentAnswer": mock_sa_query,
+        })
+        # db.query(Student) → mock_student_query
+        # db.query(StudentAnswer) → mock_sa_query
+
+    Args:
+        model_queries: 模型类名 → mock query 对象的映射
+
+    Returns:
+        配置好 query.side_effect 的 MagicMock DB session
+    """
+    mock_db = MagicMock(spec=Session)
+
+    def query_side_effect(model):
+        name = model if isinstance(model, str) else getattr(model, '__name__', str(model))
+        return model_queries.get(name, MagicMock())
+
+    mock_db.query.side_effect = query_side_effect
+    return mock_db
 
 
 def pytest_configure(config):

@@ -17,6 +17,10 @@
 - **WHEN** 学生无任何作答记录
 - **THEN** 系统返回默认难度 `medium`
 
+#### Scenario: 服务实现
+- **WHEN** 调用 `compute_zpd(db, student_id)`
+- **THEN** 系统查询最近 30 条练习记录，计算正确率，返回 easy/medium/hard 字符串
+
 ### Requirement: 薄弱知识点提取
 系统 SHALL 遍历学生全部答错作答（练习 + 考试全量），JOIN 关联题目提取 `knowledge_points`（JSON 数组，一题多知识点均计入），按错误频次降序取前 3 个知识点名称。不足 3 个时用教师指定知识点补足。
 
@@ -28,6 +32,10 @@
 - **WHEN** 学生无错题记录
 - **THEN** 系统返回空列表，交由教师指定知识点兜底
 
+#### Scenario: 服务实现
+- **WHEN** 调用 `extract_weak_knowledge_points(db, student_id, limit=3)`
+- **THEN** 系统统计错题知识点频次，返回前 N 个知识点名称列表
+
 ### Requirement: 主导障碍识别
 系统 SHALL 读取 `Student` 的三列障碍占比，取占比最高的障碍类型作为主导障碍。三列全为 0（无画像）时默认返回 `concept`。
 
@@ -38,6 +46,10 @@
 #### Scenario: 无画像
 - **WHEN** 三列占比均为 0
 - **THEN** 系统默认返回 `concept`
+
+#### Scenario: 服务实现
+- **WHEN** 调用 `get_dominant_barrier(student)`
+- **THEN** 系统读取三列占比，返回占比最高的类型字符串，默认 concept
 
 ### Requirement: 个性化出题参数组装
 系统 SHALL 组装出题参数：知识点 = 薄弱知识点 Top3（不足由教师指定补足），难度 = ZPD 档位，题型 = `choice`（v1 固定），数量 = 教师指定或默认 10，RAG 上下文 = 相似题检索结果（检索失败则为空，纯 LLM 生成）。
@@ -59,6 +71,11 @@
 #### Scenario: 超限拒绝
 - **WHEN** 单次请求学生数 > 5
 - **THEN** 系统返回错误，提示分批执行
+
+#### Scenario: 服务实现
+- **WHEN** 调用 `validate_batch(student_ids)`
+- **WHEN** 学生数超过 MAX_BATCH_STUDENTS (5)
+- **THEN** 系统抛出 ValueError
 
 ### Requirement: 练习任务列表
 系统 SHALL 提供学生练习任务列表端点，返回该学生的练习任务（`practice_id`、标题、知识点、难度、状态 pending/completed/expired、题量、截止日期）及待完成/已完成计数。
