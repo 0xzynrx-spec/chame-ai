@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-<title>登录 — ChemAI 智辅化学</title>
+<title>教师登录 — ChemAI 智辅化学</title>
 
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin=""/>
@@ -53,12 +53,11 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
 
   <!-- Logo 区 -->
   <div class="flex flex-col items-center pt-16 pb-8">
-    <!-- 化学烧瓶 SVG 图标 -->
     <div class="w-16 h-16 rounded-2xl bg-oxford-blue flex items-center justify-center mb-4">
-      <span class="material-symbols-outlined text-white text-3xl">science</span>
+      <span class="material-symbols-outlined text-white text-3xl">school</span>
     </div>
     <h1 class="font-headline text-2xl font-semibold text-oxford-blue">ChemAI 智辅化学</h1>
-    <p class="text-sm text-text-secondary mt-1">学生端</p>
+    <p class="text-sm text-text-secondary mt-1">教师端</p>
   </div>
 
   <!-- 表单区 -->
@@ -68,14 +67,14 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
       {{ error }}
     </div>
 
-    <!-- 学号/手机号 -->
+    <!-- 用户名 -->
     <div class="mb-4">
-      <label class="block text-xs text-text-secondary mb-1.5">学号或手机号</label>
+      <label class="block text-xs text-text-secondary mb-1.5">用户名</label>
       <div class="relative">
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">badge</span>
-        <input v-model="identifier" type="text" placeholder="请输入学号或手机号"
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-lg">person</span>
+        <input v-model="username" type="text" placeholder="请输入用户名"
                class="w-full h-12 pl-10 pr-4 rounded-lg border border-gray-200 bg-white text-sm"
-               :class="{ error: fieldError === 'identifier' }"
+               :class="{ error: fieldError === 'username' }"
                @keyup.enter="login"/>
       </div>
     </div>
@@ -108,14 +107,11 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
       <span v-else>登 录</span>
     </button>
 
-    <!-- 底部提示 -->
-    <p class="mt-6 text-center text-xs text-text-secondary">
-      还没有账号？<span class="text-teal-accent">联系老师注册</span>
-    </p>
-
     <!-- 快捷入口 -->
-    <div class="mt-4 flex justify-center gap-6 text-xs text-text-secondary">
-      <a href="/pages/teacher/login.html" class="text-teal-accent hover:text-teal-hover">教师端</a>
+    <div class="mt-6 flex justify-center gap-6 text-xs text-text-secondary">
+      <a href="/pages/panel.html" class="text-teal-accent hover:text-teal-hover">学情面板</a>
+      <a href="/pages/ocr.html" class="text-teal-accent hover:text-teal-hover">OCR批改</a>
+      <a href="/pages/student/login.html" class="text-teal-accent hover:text-teal-hover">学生端</a>
       <a href="/pages/parent/parent-login.html" class="text-teal-accent hover:text-teal-hover">家长端</a>
     </div>
   </div>
@@ -126,13 +122,49 @@ input.error { border-color: #b43c28; box-shadow: 0 0 0 2px rgba(180,60,40,.12); 
   </div>
 </div>
 
-<script src="common.js"></script>
 <script>
+const API_BASE = 'http://localhost:8000';
+
+function getToken() {
+  return localStorage.getItem('chemai_teacher_token') || '';
+}
+
+function setToken(token) {
+  if (token) {
+    localStorage.setItem('chemai_teacher_token', token);
+  } else {
+    localStorage.removeItem('chemai_teacher_token');
+  }
+}
+
+function decodeJwt(token) {
+  var parts = (token || '').split('.');
+  if (parts.length < 2) return null;
+  var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+  var pad = b64 + '===='.slice((b64.length % 4) || 4);
+  try {
+    var bin = atob(pad);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) {
+    return null;
+  }
+}
+
+function isTokenValid() {
+  var token = getToken();
+  if (!token) return false;
+  var payload = decodeJwt(token);
+  if (!payload || !payload.exp) return false;
+  return Date.now() < payload.exp * 1000;
+}
+
 const { createApp } = Vue;
 createApp({
   data() {
     return {
-      identifier: '',
+      username: 'teacher_wang',
       password: '',
       showPwd: false,
       loading: false,
@@ -141,9 +173,9 @@ createApp({
     };
   },
   mounted() {
-    // 已登录则直接跳转
-    if (ChemAPI.isTokenValid()) {
-      window.location.href = 'index.html';
+    // 已登录则跳转到面板
+    if (isTokenValid()) {
+      window.location.href = '/pages/panel.html';
     }
   },
   methods: {
@@ -151,9 +183,9 @@ createApp({
       this.error = '';
       this.fieldError = '';
 
-      if (!this.identifier.trim()) {
-        this.fieldError = 'identifier';
-        this.error = '请输入学号或手机号';
+      if (!this.username.trim()) {
+        this.fieldError = 'username';
+        this.error = '请输入用户名';
         return;
       }
       if (!this.password) {
@@ -164,20 +196,26 @@ createApp({
 
       this.loading = true;
       try {
-        const res = await ChemAPI.post('/api/auth/login', {
-          username: this.identifier.trim(),
-          password: this.password,
-          role: 'student',
+        const res = await fetch(API_BASE + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: this.username.trim(),
+            password: this.password,
+            role: 'teacher',
+          }),
         });
-        // 存储 token（后端返回 {success, data: {token, ...}}）
-        const token = res.data && res.data.token;
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.detail?.detail || data?.detail || '用户名或密码错误');
+        }
+        const token = data?.data?.token;
         if (!token) throw new Error('登录响应缺少 token');
-        ChemAPI.setToken(token);
-        // 跳转首页
-        window.location.href = 'index.html';
+        setToken(token);
+        // 跳转到面板
+        window.location.href = '/pages/panel.html';
       } catch (e) {
         this.error = e.message || '账号或密码错误';
-        // 触发抖动动画
         const form = this.$el.querySelector('.px-6');
         if (form) { form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
       } finally {

@@ -223,33 +223,27 @@ class Scorer:
         )
 
     def _call_llm(self, prompt: str) -> str:
-        """调用评分 LLM（带超时）"""
-        try:
-            import dashscope
-        except ImportError:
-            raise RuntimeError("dashscope 未安装")
-
+        """调用评分 LLM（带超时）— 使用 DeepSeek OpenAI 兼容 API"""
+        from openai import OpenAI
         from app.config import settings
 
-        model = self.model or settings.dashscope_model
-        api_key = self.api_key or settings.dashscope_api_key
+        model = self.model or settings.llm_model
+        api_key = self.api_key or settings.llm_api_key
+        base_url = settings.llm_base_url
 
-        messages = [
-            {"role": "system", "content": "你是化学教育质量评审专家。只输出 JSON，不要任何解释。"},
-            {"role": "user", "content": prompt},
-        ]
+        if not api_key:
+            raise RuntimeError("LLM API key 未配置（CHEMAI_LLM_API_KEY）")
 
-        resp = dashscope.Generation.call(
+        client = OpenAI(base_url=base_url, api_key=api_key, timeout=LLM_CALL_TIMEOUT)
+
+        resp = client.chat.completions.create(
             model=model,
-            messages=messages,
-            result_format="message",
+            messages=[
+                {"role": "system", "content": "你是化学教育质量评审专家。只输出 JSON，不要任何解释。"},
+                {"role": "user", "content": prompt},
+            ],
             temperature=0.1,
             max_tokens=1000,
-            api_key=api_key,
-            timeout=LLM_CALL_TIMEOUT,
         )
 
-        if getattr(resp, "status_code", None) != 200:
-            raise RuntimeError(f"DashScope 返回 {getattr(resp, 'status_code', '?')}")
-
-        return resp.output.choices[0].message.content
+        return resp.choices[0].message.content

@@ -64,6 +64,26 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="有效的 refresh token")
 
 
+# ── 聊天相关 ─────────────────────────────────────────
+
+
+class ChatRequest(BaseModel):
+    """聊天请求体"""
+
+    message: str = Field(..., min_length=1, description="用户消息")
+    student_id: str = Field(default="", description="学生 ID（可选）")
+    thread_id: str | None = Field(default=None, description="对话线程 ID（可选）")
+    session_id: str | None = Field(default=None, description="会话 ID（可选）")
+    resources: list[dict] = Field(default_factory=list, description="附件资源列表")
+
+
+class ApproveRequest(BaseModel):
+    """审批工具调用请求体"""
+
+    checkpoint_id: str = Field(..., description="审批检查点 ID")
+    approved: bool = Field(..., description="是否批准执行")
+
+
 # ── 统一响应 ─────────────────────────────────────────
 
 

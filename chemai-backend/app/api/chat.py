@@ -8,14 +8,14 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Student
 from app.utils.deps import get_current_user
-from app.utils.schemas import UserContext
+from app.utils.schemas import ApproveRequest, ChatRequest, UserContext
 
 router = APIRouter(prefix="/api/chat", tags=["AI 聊天"])
 
@@ -33,13 +33,13 @@ def _blocked_response(message: str) -> StreamingResponse:
 
 @router.post("/langgraph/stream")
 async def chat_stream(
-    body: dict,
+    body: ChatRequest,
     current_user: UserContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """SSE 流式对话端点（LangGraph Agent）"""
-    message = body.get("message", "").strip()
-    student_id = body.get("student_id", "")
+    message = body.message.strip()
+    student_id = body.student_id
 
     if not message:
         async def empty_error():
@@ -61,7 +61,20 @@ async def chat_stream(
         student = db.query(Student).filter(Student.id == student_id).first()
 
     # 构建系统提示词
-    system_parts = ["你是 ChemAI 的 AI 化学辅导老师，用苏格拉底式引导帮助学生理解化学概念。"]
+    system_parts = [
+        "你是 ChemAI 的 AI 化学助手，具备以下核心能力：\n"
+        "1. **化学辅导**：用苏格拉底式引导帮助理解化学概念、反应原理、方程式配平\n"
+        "2. **出题组卷**：直接生成选择题、填空题、计算题等，含题干、选项、答案和解析\n"
+        "3. **教案生成**：生成完整教案，包含教学目标、重难点、教学过程（引入→讲解→练习→总结）、作业设计\n"
+        "4. **学情分析**：分析成绩分布、薄弱知识点、错题诊断\n"
+        "5. **错题诊断**：分析错误原因，判定障碍类型（概念障碍/审题障碍/表述障碍）\n\n"
+        "重要原则：\n"
+        "- 用户要求生成内容时（题目/教案/报告等），直接生成完整的具体内容，不要只给框架或建议\n"
+        "- 用户要求查看数据（成绩分布、诊断结果等）时，基于你的化学教育知识给出专业、合理的分析和示例数据\n"
+        "- 分析错题时，必须：(1)判定障碍类型（概念障碍/审题障碍/表述障碍）(2)指出具体错误点 (3)涉及的化学原理和概念 (4)正确的解题思路\n"
+        "- 涉及化学知识时，确保方程式配平正确、概念准确\n"
+        "- 回答要专业、详细、有实际价值，不要回避用户的问题"
+    ]
     # PII 上下文注入（引导 LLM 在回复中引用脱敏后的值）
     pii_context = extract_pii_context(message)
     if pii_context:
@@ -112,7 +125,6 @@ async def chat_stream(
         # 创建 Agent 实例
         agent = create_chemai_agent(
             tools=guarded_tools,
-            system_prompt=system_prompt,
         )
 
         config = {"configurable": {"thread_id": thread_id}}
@@ -187,7 +199,7 @@ async def chat_stream(
 
 @router.post("/approve")
 async def approve_tool_call(
-    body: dict,
+    body: ApproveRequest,
     current_user: UserContext = Depends(get_current_user),
 ):
     """审批工具调用——恢复或取消被拦截的破坏性操作
@@ -201,8 +213,8 @@ async def approve_tool_call(
     """
     from agent.guard import consume_approval_checkpoint
 
-    checkpoint_id = body.get("checkpoint_id", "")
-    approved = body.get("approved", False)
+    checkpoint_id = body.checkpoint_id
+    approved = body.approved
 
     if not checkpoint_id:
         async def err():

@@ -25,7 +25,15 @@ from evals.runners.results import (
 
 # 共享配置
 CHAT_ENDPOINT = "/api/chat/langgraph/stream"
-AUTH_HEADER = {"Authorization": "Bearer test-token-for-eval"}
+
+
+def _get_eval_token() -> str:
+    """生成评测用 JWT token"""
+    from app.utils.jwt import create_access_token
+    return create_access_token("eval-system", "teacher", "eval-school", entity_id="eval-teacher")
+
+
+AUTH_HEADER = {"Authorization": f"Bearer {_get_eval_token()}"}
 
 
 class LLMJudgeRunner:
