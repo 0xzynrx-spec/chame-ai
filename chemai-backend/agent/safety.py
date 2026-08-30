@@ -20,12 +20,6 @@ ID_CARD_PATTERN = re.compile(r"(?<!\d)(\d{17}[\dXx])(?!\d)")
 # 邮箱
 EMAIL_PATTERN = re.compile(r"([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})")
 
-# 住址关键词（省市县区路街号）
-ADDRESS_KEYWORDS = re.compile(
-    r"([一-鿿]{2,8}(?:省|市|区|县|镇|乡|村|路|街|道|巷|号|弄|室|栋|单元|楼))"
-)
-
-
 def mask_pii(text: str) -> str:
     """对文本中的 PII 进行脱敏处理"""
     # 手机号：保留前3后4
@@ -194,46 +188,3 @@ def extract_pii_context(message: str) -> str | None:
             "请在回复中明确提及这些脱敏后的值，提醒用户注意保护隐私。"
         )
     return None
-
-
-def build_pii_aware_message(message: str) -> str:
-    """将用户消息中的 PII 替换为脱敏形式
-
-    直接在消息中替换 PII，确保 LLM 看到的是脱敏后的值。
-    同时在末尾附加脱敏说明，引导 LLM 在回复中引用这些值。
-    """
-    replacements = []
-
-    # 手机号替换
-    def _replace_phone(m):
-        original = m.group(1)
-        masked = original[:3] + "****" + original[-4:]
-        replacements.append(("手机号", masked))
-        return masked
-
-    result = PHONE_PATTERN.sub(_replace_phone, message)
-
-    # 身份证号替换
-    def _replace_id(m):
-        original = m.group(1)
-        masked = "*" * 14 + original[-4:]
-        replacements.append(("身份证号", masked))
-        return masked
-
-    result = ID_CARD_PATTERN.sub(_replace_id, result)
-
-    # 邮箱替换
-    def _replace_email(m):
-        domain = m.group(2)
-        masked = "***@" + domain
-        replacements.append(("邮箱", masked))
-        return masked
-
-    result = EMAIL_PATTERN.sub(_replace_email, result)
-
-    # 如果有替换，附加说明引导 LLM 在回复中提及脱敏后的值
-    if replacements:
-        notes = [f"{kind}（{masked}）" for kind, masked in replacements]
-        result += f"\n\n[系统提示：消息中的个人信息已脱敏处理：{'、'.join(notes)}。请在回复中明确提及这些脱敏后的值，提醒用户注意保护隐私。]"
-
-    return result

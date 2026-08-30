@@ -2,6 +2,7 @@
 
 将 LangGraph astream_events 映射为前端 SSE 事件协议。
 事件类型：phase, text, tool_call, tool_result, component, done, error
+集成 PII 脱敏：text 事件输出经过 StreamingPIIMasker 处理。
 """
 
 from __future__ import annotations
@@ -9,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, AsyncGenerator
+
+from agent.safety import StreamingPIIMasker
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,9 @@ async def stream_agent_events(
     thread_id = (config or {}).get("configurable", {}).get("thread_id", "default")
     run_config = {"configurable": {"thread_id": thread_id}}
 
+    # PII 脱敏器
+    pii_masker = StreamingPIIMasker()
+
     try:
         # phase: thinking
         yield _sse_event("phase", {"phase": "thinking"})
@@ -56,12 +62,15 @@ async def stream_agent_events(
             if kind == "on_chat_model_start":
                 yield _sse_event("phase", {"phase": "thinking"})
 
-            # LLM 流式文本输出
+            # LLM 流式文本输出（含 PII 脱敏）
             elif kind == "on_chat_model_stream":
                 chunk = event.get("data", {}).get("chunk", {})
                 content = getattr(chunk, "content", "")
                 if content:
-                    yield _sse_event("text", {"content": content})
+                    # PII 脱敏
+                    masked_content = pii_masker.feed(content)
+                    if masked_content:
+                        yield _sse_event("text", {"content": masked_content})
 
             # 工具开始执行
             elif kind == "on_tool_start":
@@ -92,13 +101,13 @@ async def stream_agent_events(
                     try:
                         approval_data = json.loads(output)
                         if approval_data.get("_approval_required"):
-                            yield _sse_event("phase", {"phase": "awaiting_approval"})
-                            yield _sse_event("tool_result", {
-                                "toolCallId": call_id,
-                                "name": tool_name,
-                                "result": output,
+                            yield _sse_event("awaiting_approval", {
+                                "checkpoint_id": approval_data.get("checkpoint_id", ""),
+                                "tool_name": tool_name,
+                                "message": approval_data.get("message", "需要教师确认"),
                             })
-                            continue
+                            yield _sse_event("done", {"status": "awaiting_approval"})
+                            return
                     except (json.JSONDecodeError, TypeError):
                         pass
 
@@ -123,6 +132,11 @@ async def stream_agent_events(
                     "name": tool_name,
                     "result": result_str,
                 })
+
+        # 流结束时 flush PII 缓冲区
+        remaining = pii_masker.flush()
+        if remaining:
+            yield _sse_event("text", {"content": remaining})
 
         # done
         yield _sse_event("done", {

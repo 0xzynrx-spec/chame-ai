@@ -1,9 +1,11 @@
 """ChemAI Backend — AI 聊天 SSE 端点
 
 POST /api/chat/langgraph/stream — 流式对话（SSE，基于 LangGraph Agent）
+POST /api/chat/approve — 审批工具调用（恢复被拦截的破坏性操作）
 """
 
 import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -16,6 +18,8 @@ from app.utils.deps import get_current_user
 from app.utils.schemas import UserContext
 
 router = APIRouter(prefix="/api/chat", tags=["AI 聊天"])
+
+logger = logging.getLogger(__name__)
 
 
 def _blocked_response(message: str) -> StreamingResponse:
@@ -172,6 +176,88 @@ async def chat_stream(
 
     return StreamingResponse(
         generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/approve")
+async def approve_tool_call(
+    body: dict,
+    current_user: UserContext = Depends(get_current_user),
+):
+    """审批工具调用——恢复或取消被拦截的破坏性操作
+
+    Request body:
+        checkpoint_id: 审批检查点 ID（来自 awaiting_approval 事件）
+        approved: true=批准执行 / false=取消
+
+    Returns:
+        SSE 流：审批结果（执行结果或取消事件）
+    """
+    from agent.guard import consume_approval_checkpoint
+
+    checkpoint_id = body.get("checkpoint_id", "")
+    approved = body.get("approved", False)
+
+    if not checkpoint_id:
+        async def err():
+            yield f"data: {json.dumps({'type': 'error', 'code': 'MISSING_CHECKPOINT', 'message': '缺少 checkpoint_id', 'recoverable': False}, ensure_ascii=False)}\n\n"
+            yield "[DONE]\n\n"
+        return StreamingResponse(err(), media_type="text/event-stream")
+
+    checkpoint = consume_approval_checkpoint(checkpoint_id)
+    if not checkpoint:
+        async def not_found():
+            yield f"data: {json.dumps({'type': 'error', 'code': 'CHECKPOINT_NOT_FOUND', 'message': '审批检查点不存在或已过期', 'recoverable': False}, ensure_ascii=False)}\n\n"
+            yield "[DONE]\n\n"
+        return StreamingResponse(not_found(), media_type="text/event-stream")
+
+    if not approved:
+        async def rejected():
+            yield f"data: {json.dumps({'type': 'approval_rejected', 'tool_name': checkpoint.tool_name, 'message': '操作已取消'}, ensure_ascii=False)}\n\n"
+            yield "[DONE]\n\n"
+        return StreamingResponse(rejected(), media_type="text/event-stream")
+
+    # 批准执行——调用原始工具
+    async def execute():
+        yield f"data: {json.dumps({'type': 'phase', 'phase': 'executing_approved_tool'}, ensure_ascii=False)}\n\n"
+
+        try:
+            if checkpoint.original_tool:
+                # Agent 场景：有原始工具对象
+                tool = checkpoint.original_tool
+                if hasattr(tool, "ainvoke"):
+                    result = await tool.ainvoke(checkpoint.tool_input)
+                elif hasattr(tool, "invoke"):
+                    result = tool.invoke(checkpoint.tool_input)
+                elif callable(tool):
+                    result = tool(**checkpoint.tool_input)
+                else:
+                    result = {"error": "工具不可调用"}
+            else:
+                # MCP 场景：通过 _execute_mcp_tool 执行
+                from agent.mcp_server import _execute_mcp_tool
+                result = _execute_mcp_tool(checkpoint.tool_name, checkpoint.tool_input)
+
+            # 剥离内部字段
+            from agent.guard import _strip_fields
+            result = _strip_fields(result)
+
+            yield f"data: {json.dumps({'type': 'tool_result', 'tool_name': checkpoint.tool_name, 'result': result}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            logger.error("审批执行工具失败 '%s': %s", checkpoint.tool_name, e)
+            yield f"data: {json.dumps({'type': 'error', 'code': 'TOOL_EXECUTION_ERROR', 'message': str(e)[:200], 'recoverable': True}, ensure_ascii=False)}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        yield "[DONE]\n\n"
+
+    return StreamingResponse(
+        execute(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

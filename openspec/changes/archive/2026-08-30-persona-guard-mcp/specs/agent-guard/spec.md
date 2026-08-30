@@ -1,7 +1,5 @@
-## Purpose
+## MODIFIED Requirements
 
-Agent 的四层安全护栏——每次工具调用经过前置检查、调用限制、去重、审批门控。
-## Requirements
 ### Requirement: 前置条件检查
 Guard SHALL 在工具调用前校验工具级前置条件（每个工具定义独立的校验规则），而非仅检查通用 required_fields。
 
@@ -72,6 +70,8 @@ Guard SHALL 通过工具装饰器模式拦截工具调用，不修改 LangGraph 
 - **WHEN** Guard 装饰器包装工具
 - **THEN** 工具的 `name`、`description`、`args_schema` 保持不变，LangGraph 工具选择不受影响
 
+## ADDED Requirements
+
 ### Requirement: GuardState 生命周期管理
 Guard SHALL 为 GuardState 实现自动过期清理机制，防止内存泄漏。
 
@@ -82,4 +82,3 @@ Guard SHALL 为 GuardState 实现自动过期清理机制，防止内存泄漏�
 #### Scenario: GuardState 容量上限
 - **WHEN** 全局 GuardState 数量超过上限（默认 1000）
 - **THEN** 清理最久未访问的 GuardState 实例
-

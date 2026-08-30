@@ -1,7 +1,5 @@
-## Purpose
+## MODIFIED Requirements
 
-4 套 Persona（Teacher/Student/Tutor/Parent）通过 YAML 配置定义 system prompt 和工具白名单，实现角色隔离。
-## Requirements
 ### Requirement: Persona YAML 配置
 每个 Persona SHALL 通过 YAML 文件定义 name、description、system_prompt、available_skills、data_access。YAML 中的 `available_skills` 字段 MUST 包含工具名列表，工具名 MUST 与 TOOL_META 注册表中的 key 完全一致。
 
@@ -34,4 +32,3 @@ Parent Persona SHALL 定义 can_see / cannot_see 数据权限，工具执行时 
 #### Scenario: Parent 只看自己孩子
 - **WHEN** Parent 查询学生数据
 - **THEN** 只能访问 can_see 列表中的数据项（own_child_scores、own_child_barriers），不能访问 cannot_see 列表中的数据项（other_students、class_stats）
-

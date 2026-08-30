@@ -1,7 +1,5 @@
-## Purpose
+## MODIFIED Requirements
 
-MCP（Model Context Protocol）工具服务器——通过 `/api/mcp` 端点供外部系统调用 16 个工具。
-## Requirements
 ### Requirement: MCP 工具列表端点
 系统 SHALL 提供 `GET /api/mcp/tools` 端点，列出所有可用 MCP 工具及参数 Schema。
 
@@ -26,6 +24,8 @@ MCP（Model Context Protocol）工具服务器——通过 `/api/mcp` 端点供�
 #### Scenario: 按名称调用
 - **WHEN** POST /api/mcp/tools/ocr_recognize
 - **THEN** 直接调用 ocr_recognize MCP 工具并返回结果
+
+## ADDED Requirements
 
 ### Requirement: MCP 角色鉴权
 MCP 端点 SHALL 检查调用者角色是否在工具的 allowed_roles 中。
@@ -55,4 +55,3 @@ MCP 工具调用 SHALL 经过 Guard 四层护栏检查。
 #### Scenario: MCP 工具与 Agent 工具独立
 - **WHEN** 系统启动
 - **THEN** MCP 工具注册表和 Agent TOOL_META 注册表各自独立加载，互不影响
-
